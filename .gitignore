@@ -1,0 +1,37 @@
+# Entorno virtual
+.venv/
+venv/
+env/
+
+# Caché de Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Archivos subidos (uploads)
+uploads/
+
+# Archivos Excel de prueba
+*.xlsx
+*.xls
+
+# Variables de entorno
+.env
+.env.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Sistema operativo
+.DS_Store
+Thumbs.db
+
+# Node
+node_modules/
+
+# Archivos temporales
+*.tmp
+*.log
