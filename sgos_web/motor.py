@@ -15,14 +15,8 @@ def _autosize_sheet(ws, df, max_width=40):
 
 def procesar_sgos(path_xlsx: str, sheet_name: str = "Data anual", asistentes_filtro: list = None):
     raw = pd.read_excel(path_xlsx, sheet_name=sheet_name, engine="openpyxl")
-    
-    # La fila 0 contiene los encabezados
-    raw.columns = raw.iloc[0]
-    # Saltamos la fila 1 (que puede estar vacía) y tomamos desde la fila 2
-    df = raw.iloc[2:].copy()
-    
-    # Limpiar encabezados de espacios en blanco
-    df.columns = df.columns.str.strip()
+    raw.columns = raw.iloc[0]          # primera fila = encabezados reales
+    df = raw.iloc[1:].copy()
 
     df = df.rename(columns={
         "Id Cliente": "IdCliente",
@@ -116,9 +110,8 @@ def obtener_asistentes(path_xlsx: str, sheet_name: str = "Data anual") -> list:
     """Extrae la lista única de asistentes del archivo"""
     raw = pd.read_excel(path_xlsx, sheet_name=sheet_name, engine="openpyxl")
     raw.columns = raw.iloc[0]
-    df = raw.iloc[2:].copy()
+    df = raw.iloc[1:].copy()
     
-    df.columns = df.columns.str.strip()
     df = df.rename(columns={"Slot Attendant": "Attendant"})
     asistentes = sorted(df["Attendant"].dropna().unique().tolist())
     return asistentes
