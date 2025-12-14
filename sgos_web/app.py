@@ -5,9 +5,9 @@ from flask import Flask, render_template, request, redirect, url_for, send_file,
 from werkzeug.utils import secure_filename
 
 try:
-    from sgos_web.motor import procesar_sgos, exportar_excel_bytes, obtener_asistentes
+    from sgos_web.engine import procesar_sgos, exportar_excel_bytes, obtener_asistentes
 except ImportError:
-    from motor import procesar_sgos, exportar_excel_bytes, obtener_asistentes
+    from engine import procesar_sgos, exportar_excel_bytes, obtener_asistentes
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "sgos-secret")  # ideal: variable de entorno

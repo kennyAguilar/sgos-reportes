@@ -110,7 +110,7 @@ def procesar_sgos(path_xlsx: str, sheet_name: str | None = None, asistentes_filt
     }
 
 def obtener_asistentes(path_xlsx: str, sheet_name: str | None = None) -> list:
-    print(f"DEBUG: obtener_asistentes called with path={path_xlsx}, sheet_name={sheet_name}")
+    # print(f"DEBUG: obtener_asistentes called with path={path_xlsx}, sheet_name={sheet_name}")
     df = _cargar_df(path_xlsx, sheet_name=sheet_name)
     return sorted(df["Attendant"].dropna().unique().tolist())
 
