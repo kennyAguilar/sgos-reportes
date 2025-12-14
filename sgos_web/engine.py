@@ -51,8 +51,9 @@ def _cargar_df(path_xlsx: str, sheet_name: str | None = None) -> pd.DataFrame:
         "Ingreso CAWA": "Ingreso",
     })
 
-    df["Fecha"] = pd.to_datetime(df.get("Fecha"), errors="coerce", dayfirst=True)
-    df["Jornada"] = pd.to_datetime(df.get("Jornada"), errors="coerce", dayfirst=True)
+    # Usar format='mixed' para soportar tanto DD-MM-YYYY como YYYY-MM-DD correctamente
+    df["Fecha"] = pd.to_datetime(df.get("Fecha"), errors="coerce", dayfirst=True, format="mixed")
+    df["Jornada"] = pd.to_datetime(df.get("Jornada"), errors="coerce", dayfirst=True, format="mixed")
     df["Monto"] = pd.to_numeric(df.get("Monto"), errors="coerce").fillna(0)
 
     df = df.dropna(subset=["Fecha", "Jornada", "Attendant"]).copy()
