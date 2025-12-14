@@ -3,7 +3,7 @@ import uuid
 from flask import Flask, render_template, request, redirect, url_for, send_file, flash, session
 from werkzeug.utils import secure_filename
 
-from .motor import procesar_sgos, exportar_excel_bytes, obtener_asistentes
+from sgos_web.motor import procesar_sgos, exportar_excel_bytes, obtener_asistentes
 
 app = Flask(__name__)
 app.secret_key = "sgos-secret"  # simple para flash messages
