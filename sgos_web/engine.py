@@ -67,6 +67,50 @@ def _cargar_df(path_xlsx: str, sheet_name: str | None = None) -> pd.DataFrame:
     df["Mes"] = df["JornadaDia"].dt.to_period("M").astype(str)
     return df
 
+def guardar_operaciones(path_xlsx: str, db, Operacion, sheet_name: str | None = None):
+    """
+    Lee el Excel, limpia los datos y los guarda en la base de datos.
+    Si ya existen datos para el mes detectado, los borra antes de insertar (para evitar duplicados).
+    """
+    df = _cargar_df(path_xlsx, sheet_name=sheet_name)
+    
+    if df.empty:
+        return 0
+
+    # Detectar meses presentes en el archivo
+    meses_en_archivo = df["Mes"].unique()
+
+    # Iniciar transacción
+    try:
+        for mes in meses_en_archivo:
+            # Borrar datos existentes de ese mes
+            db.session.query(Operacion).filter(Operacion.mes == mes).delete()
+        
+        # Insertar nuevos datos
+        operaciones = []
+        for _, row in df.iterrows():
+            op = Operacion(
+                fecha=row["Fecha"],
+                jornada=row["Jornada"],
+                id_cliente=str(row.get("IdCliente", "")),
+                monto=row["Monto"],
+                voucher=str(row.get("Voucher", "")),
+                attendant=row["Attendant"],
+                validador=str(row.get("Validador", "")),
+                forma_pago=str(row.get("FormaPago", "")),
+                ingreso_cawa=str(row.get("Ingreso", "")),
+                mes=row["Mes"],
+                hora=row["Hora"]
+            )
+            operaciones.append(op)
+        
+        db.session.add_all(operaciones)
+        db.session.commit()
+        return len(operaciones)
+    except Exception as e:
+        db.session.rollback()
+        raise e
+
 def procesar_sgos(path_xlsx: str, sheet_name: str | None = None, asistentes_filtro: list = None):
     df = _cargar_df(path_xlsx, sheet_name=sheet_name)
 

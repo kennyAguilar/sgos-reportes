@@ -1,16 +1,57 @@
 import os
 import uuid
 from io import BytesIO
+from dotenv import load_dotenv
 from flask import Flask, render_template, request, redirect, url_for, send_file, flash, session, abort
+from flask_sqlalchemy import SQLAlchemy
 from werkzeug.utils import secure_filename
 
+load_dotenv()  # Carga las variables del archivo .env
+
 try:
-    from sgos_web.engine import procesar_sgos, exportar_excel_bytes, obtener_asistentes
+    from sgos_web.engine import procesar_sgos, exportar_excel_bytes, obtener_asistentes, guardar_operaciones
 except ImportError:
-    from engine import procesar_sgos, exportar_excel_bytes, obtener_asistentes
+    from engine import procesar_sgos, exportar_excel_bytes, obtener_asistentes, guardar_operaciones
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("FLASK_SECRET_KEY", "sgos-secret")  # ideal: variable de entorno
+app.secret_key = os.environ.get("FLASK_SECRET_KEY", "sgos-secret")
+
+# Configuración de Base de Datos
+# Si no hay variable DATABASE_URL o está vacía, usa SQLite local por defecto
+db_url = os.environ.get("DATABASE_URL")
+if not db_url:
+    db_url = "sqlite:///sgos_local.db"
+
+app.config['SQLALCHEMY_DATABASE_URI'] = db_url
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+db = SQLAlchemy(app)
+
+# --- MODELOS ---
+class Operacion(db.Model):
+    __tablename__ = 'operaciones'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    fecha = db.Column(db.DateTime, nullable=False)
+    jornada = db.Column(db.DateTime, nullable=False)
+    id_cliente = db.Column(db.String(100))
+    monto = db.Column(db.Float, default=0.0)
+    voucher = db.Column(db.String(100))
+    attendant = db.Column(db.String(100), nullable=False)
+    validador = db.Column(db.String(100))
+    forma_pago = db.Column(db.String(50))
+    ingreso_cawa = db.Column(db.String(50))
+    
+    # Campos calculados útiles para consultas rápidas
+    mes = db.Column(db.String(7))  # YYYY-MM
+    hora = db.Column(db.Integer)
+
+    def __repr__(self):
+        return f"<Operacion {self.id} - {self.attendant} - {self.monto}>"
+
+# Crear tablas si no existen (solo para desarrollo local/inicial)
+with app.app_context():
+    db.create_all()
 
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -96,6 +137,13 @@ def index():
         saved_name = f"{token}__{filename}"
         path = os.path.join(app.config["UPLOAD_FOLDER"], saved_name)
         f.save(path)
+
+        # --- NUEVO: Guardar en Base de Datos ---
+        try:
+            total_guardados = guardar_operaciones(path, db, Operacion)
+            flash(f"¡Éxito! Se guardaron {total_guardados} registros en la base de datos.")
+        except Exception as e:
+            flash(f"Error al guardar en base de datos: {str(e)}")
 
         opciones = request.form.getlist("opciones")  # lo que marcó en index
         session[f"tablas_{saved_name}"] = opciones

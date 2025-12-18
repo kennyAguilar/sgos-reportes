@@ -3,3 +3,6 @@ pandas
 openpyxl
 gunicorn
 werkzeug
+psycopg2-binary
+Flask-SQLAlchemy
+python-dotenv
