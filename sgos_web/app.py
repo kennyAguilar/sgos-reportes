@@ -7,6 +7,8 @@ from flask import Flask, render_template, request, redirect, url_for, send_file,
 from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import select
 from werkzeug.utils import secure_filename
+from werkzeug.security import generate_password_hash, check_password_hash
+from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
 
 load_dotenv()  # Carga las variables del archivo .env
 
@@ -17,6 +19,11 @@ except ImportError:
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "sgos-secret")
+
+# Configuración de Login
+login_manager = LoginManager()
+login_manager.init_app(app)
+login_manager.login_view = "login"
 
 # Configuración de Base de Datos
 # Si no hay variable DATABASE_URL o está vacía, usa SQLite local por defecto
@@ -30,6 +37,22 @@ app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 db = SQLAlchemy(app)
 
 # --- MODELOS ---
+class User(UserMixin, db.Model):
+    __tablename__ = 'users'
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(100), unique=True, nullable=False)
+    password_hash = db.Column(db.String(200), nullable=False)
+
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
+
+@login_manager.user_loader
+def load_user(user_id):
+    return db.session.get(User, int(user_id))
+
 class Operacion(db.Model):
     __tablename__ = 'operaciones'
     
@@ -54,6 +77,14 @@ class Operacion(db.Model):
 # Crear tablas si no existen (solo para desarrollo local/inicial)
 with app.app_context():
     db.create_all()
+    
+    # Crear usuario admin por defecto si no existe
+    if not User.query.filter_by(username="admin").first():
+        admin = User(username="admin")
+        admin.set_password("admin123")  # Contraseña por defecto
+        db.session.add(admin)
+        db.session.commit()
+        print("Usuario 'admin' creado con contraseña 'admin123'")
 
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -122,7 +153,34 @@ def tablas_a_html(tablas: dict) -> dict:
     }
 
 
+@app.route("/login", methods=["GET", "POST"])
+def login():
+    if current_user.is_authenticated:
+        return redirect(url_for("index"))
+        
+    if request.method == "POST":
+        username = request.form.get("username")
+        password = request.form.get("password")
+        user = User.query.filter_by(username=username).first()
+        
+        if user and user.check_password(password):
+            login_user(user)
+            return redirect(url_for("index"))
+        else:
+            flash("Usuario o contraseña incorrectos.")
+            
+    return render_template("login.html")
+
+
+@app.route("/logout")
+@login_required
+def logout():
+    logout_user()
+    return redirect(url_for("login"))
+
+
 @app.route("/", methods=["GET", "POST"])
+@login_required
 def index():
     if request.method == "POST":
         f = request.files.get("file")
@@ -161,6 +219,7 @@ def index():
 
 
 @app.route("/dashboard/<file_id>", methods=["GET", "POST"])
+@login_required
 def dashboard(file_id):
     path = safe_file_path(file_id)
     if not os.path.exists(path):
@@ -216,6 +275,7 @@ def get_db_dataframe():
 
 
 @app.route("/dashboard_db", methods=["GET", "POST"])
+@login_required
 def dashboard_db():
     df = get_db_dataframe()
     
@@ -245,6 +305,7 @@ def dashboard_db():
     )
 
 
+@login_required
 @app.route("/download/<file_id>", methods=["GET"])
 def download(file_id):
     if file_id == "db":

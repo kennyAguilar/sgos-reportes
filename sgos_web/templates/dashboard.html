@@ -17,6 +17,24 @@
       padding: 30px;
       margin-bottom: 30px;
       border: 1px solid rgba(59, 130, 246, 0.2);
+      position: relative;
+    }
+    .logout-btn {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      background: rgba(239, 68, 68, 0.2);
+      color: #fca5a5;
+      border: 1px solid rgba(239, 68, 68, 0.4);
+      padding: 8px 15px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-size: 0.9rem;
+      transition: all 0.3s ease;
+    }
+    .logout-btn:hover {
+      background: rgba(239, 68, 68, 0.3);
+      color: #fff;
     }
     .header-dashboard h1 {
       font-size: 2rem;
@@ -167,6 +185,7 @@
 <body>
   <div class="container py-4">
     <div class="header-dashboard">
+      <a href="/logout" class="logout-btn"><i class="bi bi-box-arrow-right"></i> Salir</a>
       <h1><i class="bi bi-graph-up"></i> Dashboard de Reportes</h1>
     </div>
 
