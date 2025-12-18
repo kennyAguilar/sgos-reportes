@@ -1,17 +1,19 @@
 import os
 import uuid
 from io import BytesIO
+import pandas as pd
 from dotenv import load_dotenv
 from flask import Flask, render_template, request, redirect, url_for, send_file, flash, session, abort
 from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy import select
 from werkzeug.utils import secure_filename
 
 load_dotenv()  # Carga las variables del archivo .env
 
 try:
-    from sgos_web.engine import procesar_sgos, exportar_excel_bytes, obtener_asistentes, guardar_operaciones
+    from sgos_web.engine import procesar_sgos, exportar_excel_bytes, obtener_asistentes, guardar_operaciones, generar_reportes
 except ImportError:
-    from engine import procesar_sgos, exportar_excel_bytes, obtener_asistentes, guardar_operaciones
+    from engine import procesar_sgos, exportar_excel_bytes, obtener_asistentes, guardar_operaciones, generar_reportes
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "sgos-secret")
@@ -189,8 +191,81 @@ def dashboard(file_id):
     )
 
 
+def get_db_dataframe():
+    """Consulta la base de datos y devuelve un DataFrame con el formato esperado por engine.py"""
+    with db.engine.connect() as conn:
+        df = pd.read_sql(select(Operacion), conn)
+    
+    if df.empty:
+        return df
+
+    # Renombrar columnas para coincidir con engine.py
+    df = df.rename(columns={
+        "fecha": "Fecha",
+        "jornada": "Jornada",
+        "monto": "Monto",
+        "attendant": "Attendant",
+        "mes": "Mes",
+        "hora": "Hora"
+    })
+    
+    # Calcular JornadaDia
+    df["JornadaDia"] = pd.to_datetime(df["Jornada"]).dt.normalize()
+    
+    return df
+
+
+@app.route("/dashboard_db", methods=["GET", "POST"])
+def dashboard_db():
+    df = get_db_dataframe()
+    
+    if df.empty:
+        flash("No hay datos en la base de datos.")
+        return redirect(url_for("index"))
+
+    asistentes_disponibles = sorted(df["Attendant"].dropna().unique().tolist())
+
+    if request.method == "POST":
+        asistentes_sel = request.form.getlist("asistentes")
+        session["asistentes_sel_db"] = asistentes_sel
+        return redirect(url_for("dashboard_db"))
+
+    asistentes_sel = session.get("asistentes_sel_db", [])
+    asistentes_seleccionados = asistentes_sel or asistentes_disponibles
+
+    # Generar reportes usando el DataFrame directo
+    tablas = generar_reportes(df, asistentes_seleccionados)
+    
+    return render_template(
+        "dashboard.html",
+        file_id="db",
+        tablas_html=tablas_a_html(tablas),
+        asistentes_disponibles=asistentes_disponibles,
+        asistentes_seleccionados=asistentes_seleccionados
+    )
+
+
 @app.route("/download/<file_id>", methods=["GET"])
 def download(file_id):
+    if file_id == "db":
+        df = get_db_dataframe()
+        if df.empty:
+            return "No hay datos para descargar.", 404
+            
+        asistentes_disponibles = sorted(df["Attendant"].dropna().unique().tolist())
+        asistentes_sel = session.get("asistentes_sel_db", [])
+        asistentes_seleccionados = asistentes_sel or asistentes_disponibles
+        
+        tablas = generar_reportes(df, asistentes_seleccionados)
+        output: BytesIO = exportar_excel_bytes(tablas)
+        
+        return send_file(
+            output,
+            as_attachment=True,
+            download_name="reporte_historico_db.xlsx",
+            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        )
+
     path = safe_file_path(file_id)
     if not os.path.exists(path):
         return "Archivo no encontrado.", 404

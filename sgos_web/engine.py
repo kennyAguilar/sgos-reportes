@@ -111,9 +111,10 @@ def guardar_operaciones(path_xlsx: str, db, Operacion, sheet_name: str | None = 
         db.session.rollback()
         raise e
 
-def procesar_sgos(path_xlsx: str, sheet_name: str | None = None, asistentes_filtro: list = None):
-    df = _cargar_df(path_xlsx, sheet_name=sheet_name)
-
+def generar_reportes(df: pd.DataFrame, asistentes_filtro: list = None) -> dict:
+    """
+    Genera los diccionarios de DataFrames (tablas) a partir de un DataFrame principal ya limpio.
+    """
     if asistentes_filtro:
         df = df[df["Attendant"].isin(asistentes_filtro)].copy()
 
@@ -169,6 +170,10 @@ def procesar_sgos(path_xlsx: str, sheet_name: str | None = None, asistentes_filt
         "Asistente por Mes": tabla_asistente_mes,
         "QA": qa_df,
     }
+
+def procesar_sgos(path_xlsx: str, sheet_name: str | None = None, asistentes_filtro: list = None):
+    df = _cargar_df(path_xlsx, sheet_name=sheet_name)
+    return generar_reportes(df, asistentes_filtro)
 
 def obtener_asistentes(path_xlsx: str, sheet_name: str | None = None) -> list:
     # print(f"DEBUG: obtener_asistentes called with path={path_xlsx}, sheet_name={sheet_name}")
