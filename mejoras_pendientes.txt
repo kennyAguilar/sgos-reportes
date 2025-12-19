@@ -1,0 +1,16 @@
+Opciones de Mejora Futura para SGOS
+
+1. Mejoras Visuales y Gráficos (Dashboard Pro)
+   - Qué es: Convertir las tablas simples en un panel de control visual.
+   - Incluye: Gráficos de barras (operaciones por hora), líneas de tendencia (mensual), tarjetas con números grandes (KPIs de montos totales) y tablas con buscador y filtros.
+   - Valor: Permite analizar la información mucho más rápido de un vistazo.
+
+2. Despliegue en la Nube (Ponerla en Internet)
+   - Qué es: Configurar la aplicación para subirla a un servidor real (como Render o Railway).
+   - Incluye: Configuración de servidor (gunicorn), variables de entorno para producción y ajustes de seguridad.
+   - Valor: Podrás acceder a la aplicación desde cualquier computadora o celular, no solo desde la tuya.
+
+3. Automatización y Reportes (Email/PDF)
+   - Qué es: Agregar funciones para compartir la información.
+   - Incluye: Generar reportes en PDF o enviar un resumen automático por correo electrónico al final del día.
+   - Valor: Ahorra tiempo si tienes que enviar estos reportes a jefes o clientes.

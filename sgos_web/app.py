@@ -148,7 +148,7 @@ def preparar_tablas(path: str, opciones: list[str], asistentes_sel: list[str]) -
 
 def tablas_a_html(tablas: dict) -> dict:
     return {
-        k: v.to_html(index=False, classes="table table-sm table-striped")
+        k: v.to_html(index=False, classes="table table-sm table-striped w-auto mx-auto")
         for k, v in tablas.items()
     }
 
@@ -333,7 +333,13 @@ def download(file_id):
 
     opciones = session.get(f"tablas_{file_id}", [])
     asistentes_disponibles = obtener_asistentes(path)
-    asistentes_sel = session.get(f"asistentes_sel_{file_id}", [])
+
+    # Priorizar filtro desde URL (si viene del botón con JS)
+    if request.args.get("filtered") == "true":
+        asistentes_sel = request.args.getlist("asistentes")
+    else:
+        asistentes_sel = session.get(f"asistentes_sel_{file_id}", [])
+
     asistentes_seleccionados = asistentes_sel or asistentes_disponibles
 
     tablas = preparar_tablas(path, opciones, asistentes_seleccionados)
@@ -345,6 +351,43 @@ def download(file_id):
         download_name="reporte_operaciones.xlsx",
         mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
+
+
+@app.route("/premios")
+@login_required
+def premios():
+    return render_template("construccion.html")
+
+
+@app.route("/graphs")
+@login_required
+def graphs():
+    df = get_db_dataframe()
+    if df.empty:
+        # Si no hay datos, pasamos listas vacías para que no falle el JS
+        return render_template("graphs.html", 
+                               data_mes={"labels": [], "ops": [], "monto": []},
+                               data_hora={"labels": [], "ops": [], "monto": []})
+
+    # Reutilizamos la lógica de engine para agrupar
+    tablas = generar_reportes(df)
+    
+    df_mes = tablas["Resumen Mensual"]
+    df_hora = tablas["Operaciones por Hora"]
+
+    data_mes = {
+        "labels": df_mes["Mes"].tolist(),
+        "ops": df_mes["Operaciones"].tolist(),
+        "monto": df_mes["Monto"].tolist()
+    }
+
+    data_hora = {
+        "labels": df_hora["Hora"].tolist(),
+        "ops": df_hora["Operaciones"].tolist(),
+        "monto": df_hora["Monto"].tolist()
+    }
+
+    return render_template("graphs.html", data_mes=data_mes, data_hora=data_hora)
 
 
 if __name__ == "__main__":

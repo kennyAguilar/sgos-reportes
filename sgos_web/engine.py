@@ -21,11 +21,21 @@ def _formatear_periodo(periodo_str: str) -> str:
     except:
         return periodo_str
 
-def _autosize_sheet(ws, df, max_width=40):
+def _autosize_sheet(ws, df, max_width=None):
     for col_idx, col_name in enumerate(df.columns, start=1):
+        # Detectar si es fecha para dar más margen
+        is_date = pd.api.types.is_datetime64_any_dtype(df[col_name])
+        
         col_vals = df[col_name].astype(str).fillna("")
         max_len = max(len(str(col_name)), *(len(v) for v in col_vals))
-        ws.column_dimensions[get_column_letter(col_idx)].width = min(max_len + 2, max_width)
+        
+        # Las fechas suelen necesitar más espacio por el formato (dd/mm/yyyy, etc.)
+        padding = 6 if is_date else 3
+        
+        adjusted_width = max_len + padding
+        if max_width:
+            adjusted_width = min(adjusted_width, max_width)
+        ws.column_dimensions[get_column_letter(col_idx)].width = adjusted_width
 
 def _detectar_fila_header(path_xlsx: str, sheet_name: str):
     preview = pd.read_excel(path_xlsx, sheet_name=sheet_name, engine="openpyxl", header=None, nrows=30)
@@ -132,6 +142,8 @@ def generar_reportes(df: pd.DataFrame, asistentes_filtro: list = None) -> dict:
         .reindex(ORDEN_HORAS, fill_value=0)
         .reset_index()
     )
+    # Convertir a string para que Excel lo trate como categorías (texto) y no números
+    tabla_hora["Hora"] = tabla_hora["Hora"].astype(str)
 
     ops_por_jornada = (
         df.groupby(["Attendant", "JornadaDia"], as_index=False)

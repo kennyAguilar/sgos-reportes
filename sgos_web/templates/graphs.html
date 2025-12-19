@@ -1,0 +1,143 @@
+{% extends "layout.html" %}
+
+{% block title %}Dashboard de Reportes{% endblock %}
+
+{% block content %}
+<div class="container-fluid mt-4">
+    <div class="header-dashboard mb-4">
+        <h1><i class="bi bi-pie-chart-fill"></i> Dashboard de Reportes</h1>
+    </div>
+
+    <div class="row mb-4">
+        <!-- Resumen Mensual: Operaciones -->
+        <div class="col-md-6 mb-4">
+            <div class="card h-100 shadow-sm bg-dark text-light border-secondary">
+                <div class="card-header border-secondary">
+                    <h5 class="card-title mb-0"><i class="bi bi-calendar-check"></i> Operaciones por Mes</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="chartMesOps"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Resumen Mensual: Montos -->
+        <div class="col-md-6 mb-4">
+            <div class="card h-100 shadow-sm bg-dark text-light border-secondary">
+                <div class="card-header border-secondary">
+                    <h5 class="card-title mb-0"><i class="bi bi-currency-dollar"></i> Montos por Mes</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="chartMesMonto"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <!-- Operaciones por Hora -->
+        <div class="col-md-6 mb-4">
+            <div class="card h-100 shadow-sm bg-dark text-light border-secondary">
+                <div class="card-header border-secondary">
+                    <h5 class="card-title mb-0"><i class="bi bi-clock"></i> Operaciones por Hora</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="chartHoraOps"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Montos por Hora -->
+        <div class="col-md-6 mb-4">
+            <div class="card h-100 shadow-sm bg-dark text-light border-secondary">
+                <div class="card-header border-secondary">
+                    <h5 class="card-title mb-0"><i class="bi bi-cash-coin"></i> Montos por Hora</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="chartHoraMonto"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Chart.js -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<script>
+    // Configuración común para gráficos oscuros
+    Chart.defaults.color = '#e0e0e0';
+    Chart.defaults.borderColor = '#444';
+
+    const dataMes = {{ data_mes | tojson }};
+    const dataHora = {{ data_hora | tojson }};
+
+    // 1. Operaciones por Mes
+    new Chart(document.getElementById('chartMesOps'), {
+        type: 'bar',
+        data: {
+            labels: dataMes.labels,
+            datasets: [{
+                label: 'Operaciones',
+                data: dataMes.ops,
+                backgroundColor: 'rgba(54, 162, 235, 0.6)',
+                borderColor: 'rgba(54, 162, 235, 1)',
+                borderWidth: 1
+            }]
+        },
+        options: { responsive: true, maintainAspectRatio: false }
+    });
+
+    // 2. Montos por Mes
+    new Chart(document.getElementById('chartMesMonto'), {
+        type: 'line',
+        data: {
+            labels: dataMes.labels,
+            datasets: [{
+                label: 'Monto Total',
+                data: dataMes.monto,
+                backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                borderColor: 'rgba(75, 192, 192, 1)',
+                borderWidth: 2,
+                fill: true,
+                tension: 0.3
+            }]
+        },
+        options: { responsive: true, maintainAspectRatio: false }
+    });
+
+    // 3. Operaciones por Hora
+    new Chart(document.getElementById('chartHoraOps'), {
+        type: 'bar',
+        data: {
+            labels: dataHora.labels,
+            datasets: [{
+                label: 'Operaciones',
+                data: dataHora.ops,
+                backgroundColor: 'rgba(255, 206, 86, 0.6)',
+                borderColor: 'rgba(255, 206, 86, 1)',
+                borderWidth: 1
+            }]
+        },
+        options: { responsive: true, maintainAspectRatio: false }
+    });
+
+    // 4. Montos por Hora
+    new Chart(document.getElementById('chartHoraMonto'), {
+        type: 'line',
+        data: {
+            labels: dataHora.labels,
+            datasets: [{
+                label: 'Monto Total',
+                data: dataHora.monto,
+                backgroundColor: 'rgba(255, 99, 132, 0.2)',
+                borderColor: 'rgba(255, 99, 132, 1)',
+                borderWidth: 2,
+                fill: true,
+                tension: 0.3
+            }]
+        },
+        options: { responsive: true, maintainAspectRatio: false }
+    });
+</script>
+{% endblock %}
