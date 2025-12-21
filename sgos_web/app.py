@@ -13,9 +13,9 @@ from flask_login import LoginManager, UserMixin, login_user, login_required, log
 load_dotenv()  # Carga las variables del archivo .env
 
 try:
-    from sgos_web.engine import procesar_sgos, exportar_excel_bytes, obtener_asistentes, guardar_operaciones, generar_reportes
+    from sgos_web.engine import procesar_sgos, exportar_excel_bytes, obtener_asistentes, guardar_datos_db, generar_reportes
 except ImportError:
-    from engine import procesar_sgos, exportar_excel_bytes, obtener_asistentes, guardar_operaciones, generar_reportes
+    from engine import procesar_sgos, exportar_excel_bytes, obtener_asistentes, guardar_datos_db, generar_reportes
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY", "sgos-secret")
@@ -66,6 +66,7 @@ class Operacion(db.Model):
     validador = db.Column(db.String(100))
     forma_pago = db.Column(db.String(50))
     ingreso_cawa = db.Column(db.String(50))
+    # tipo = db.Column(db.String(50), default='GETNET') # Eliminado, usaremos tabla separada
     
     # Campos calculados útiles para consultas rápidas
     mes = db.Column(db.String(7))  # YYYY-MM
@@ -73,6 +74,28 @@ class Operacion(db.Model):
 
     def __repr__(self):
         return f"<Operacion {self.id} - {self.attendant} - {self.monto}>"
+
+class Premio(db.Model):
+    __tablename__ = 'premios'
+    
+    id = db.Column(db.Integer, primary_key=True)
+    fecha = db.Column(db.DateTime, nullable=False)
+    jornada = db.Column(db.DateTime, nullable=False)
+    id_cliente = db.Column(db.String(100))
+    monto = db.Column(db.Float, default=0.0) # Transferencia Final
+    propina = db.Column(db.Float, default=0.0)
+    maquina = db.Column(db.String(50))
+    attendant = db.Column(db.String(100), nullable=False)
+    validador = db.Column(db.String(100))
+    forma_pago = db.Column(db.String(50))
+    ingreso_cawa = db.Column(db.String(50))
+    
+    # Campos calculados
+    mes = db.Column(db.String(7))
+    hora = db.Column(db.Integer)
+
+    def __repr__(self):
+        return f"<Premio {self.id} - {self.attendant} - {self.monto}>"
 
 # Crear tablas si no existen (solo para desarrollo local/inicial)
 with app.app_context():
@@ -200,8 +223,8 @@ def index():
 
         # --- NUEVO: Guardar en Base de Datos ---
         try:
-            total_guardados = guardar_operaciones(path, db, Operacion)
-            flash(f"¡Éxito! Se guardaron {total_guardados} registros en la base de datos.")
+            total_guardados, tipo_archivo = guardar_datos_db(path, db, Operacion, Premio)
+            flash(f"¡Éxito! Se guardaron {total_guardados} registros de tipo {tipo_archivo} en la base de datos.")
         except Exception as e:
             flash(f"Error al guardar en base de datos: {str(e)}")
 
@@ -274,13 +297,37 @@ def get_db_dataframe():
     return df
 
 
+def get_premios_dataframe():
+    """Consulta la base de datos de PREMIOS y devuelve un DataFrame"""
+    with db.engine.connect() as conn:
+        df = pd.read_sql(select(Premio), conn)
+    
+    if df.empty:
+        return df
+
+    # Renombrar columnas para coincidir con engine.py
+    df = df.rename(columns={
+        "fecha": "Fecha",
+        "jornada": "Jornada",
+        "monto": "Monto",
+        "attendant": "Attendant",
+        "mes": "Mes",
+        "hora": "Hora"
+    })
+    
+    # Calcular JornadaDia
+    df["JornadaDia"] = pd.to_datetime(df["Jornada"]).dt.normalize()
+    
+    return df
+
+
 @app.route("/dashboard_db", methods=["GET", "POST"])
 @login_required
 def dashboard_db():
     df = get_db_dataframe()
     
     if df.empty:
-        flash("No hay datos en la base de datos.")
+        flash("No hay datos de Getnet en la base de datos.")
         return redirect(url_for("index"))
 
     asistentes_disponibles = sorted(df["Attendant"].dropna().unique().tolist())
@@ -301,7 +348,40 @@ def dashboard_db():
         file_id="db",
         tablas_html=tablas_a_html(tablas),
         asistentes_disponibles=asistentes_disponibles,
-        asistentes_seleccionados=asistentes_seleccionados
+        asistentes_seleccionados=asistentes_seleccionados,
+        titulo_dashboard="Histórico Getnet"
+    )
+
+
+@app.route("/dashboard_premios", methods=["GET", "POST"])
+@login_required
+def dashboard_premios():
+    df = get_premios_dataframe()
+    
+    if df.empty:
+        flash("No hay datos de Premios en la base de datos.")
+        return redirect(url_for("index"))
+
+    asistentes_disponibles = sorted(df["Attendant"].dropna().unique().tolist())
+
+    if request.method == "POST":
+        asistentes_sel = request.form.getlist("asistentes")
+        session["asistentes_sel_premios"] = asistentes_sel
+        return redirect(url_for("dashboard_premios"))
+
+    asistentes_sel = session.get("asistentes_sel_premios", [])
+    asistentes_seleccionados = asistentes_sel or asistentes_disponibles
+
+    # Generar reportes usando el DataFrame directo
+    tablas = generar_reportes(df, asistentes_seleccionados)
+    
+    return render_template(
+        "dashboard.html",
+        file_id="premios_db",
+        tablas_html=tablas_a_html(tablas),
+        asistentes_disponibles=asistentes_disponibles,
+        asistentes_seleccionados=asistentes_seleccionados,
+        titulo_dashboard="Histórico Premios"
     )
 
 
@@ -310,11 +390,22 @@ def dashboard_db():
 def download(file_id):
     if file_id == "db":
         df = get_db_dataframe()
-        if df.empty:
+        download_name = "reporte_historico_getnet.xlsx"
+    elif file_id == "premios_db":
+        df = get_premios_dataframe()
+        download_name = "reporte_historico_premios.xlsx"
+    else:
+        df = None
+
+    if file_id in ["db", "premios_db"]:
+        if df is None or df.empty:
             return "No hay datos para descargar.", 404
             
         asistentes_disponibles = sorted(df["Attendant"].dropna().unique().tolist())
-        asistentes_sel = session.get("asistentes_sel_db", [])
+        
+        # Usar la sesión correcta según el tipo
+        session_key = "asistentes_sel_db" if file_id == "db" else "asistentes_sel_premios"
+        asistentes_sel = session.get(session_key, [])
         asistentes_seleccionados = asistentes_sel or asistentes_disponibles
         
         tablas = generar_reportes(df, asistentes_seleccionados)
@@ -323,7 +414,7 @@ def download(file_id):
         return send_file(
             output,
             as_attachment=True,
-            download_name="reporte_historico_db.xlsx",
+            download_name=download_name,
             mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         )
 

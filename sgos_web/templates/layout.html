@@ -60,7 +60,7 @@
         <ul class="navbar-nav me-auto">
           <li class="nav-item">
             <a class="nav-link" href="{{ url_for('index') }}">
-              <i class="bi bi-upload"></i> Cargar Getnet
+              <i class="bi bi-upload"></i> Cargar Archivo
             </a>
           </li>
           <li class="nav-item">
@@ -73,13 +73,15 @@
               <i class="bi bi-pie-chart"></i> Dashboard de Reportes
             </a>
           </li>
+          <!--
           <li class="nav-item">
             <a class="nav-link" href="{{ url_for('premios') }}">
               <i class="bi bi-trophy"></i> Carga de Premios
             </a>
           </li>
+          -->
           <li class="nav-item">
-            <a class="nav-link" href="{{ url_for('premios') }}">
+            <a class="nav-link" href="{{ url_for('dashboard_premios') }}">
               <i class="bi bi-clock-history"></i> Históricos de Premios
             </a>
           </li>

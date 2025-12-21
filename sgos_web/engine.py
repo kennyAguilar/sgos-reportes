@@ -5,7 +5,8 @@ from openpyxl.utils import get_column_letter
 ORDEN_HORAS = list(range(10, 24)) + list(range(0, 9))
 HORAS_VALIDAS = set(ORDEN_HORAS)
 
-COLUMNAS_CLAVE = {"Jornada", "Fecha", "Monto"}  # mínimo para validar header
+COLUMNAS_CLAVE_STD = {"Jornada", "Fecha", "Monto"}
+COLUMNAS_CLAVE_PREMIOS = {"Monto Transferido", "Slot Attendant", "Transferencia Final"}
 
 MESES_ES = {
     1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril", 5: "Mayo", 6: "Junio",
@@ -41,7 +42,9 @@ def _detectar_fila_header(path_xlsx: str, sheet_name: str):
     preview = pd.read_excel(path_xlsx, sheet_name=sheet_name, engine="openpyxl", header=None, nrows=30)
     for i in range(len(preview)):
         fila = set(preview.iloc[i].astype(str).str.strip().tolist())
-        if COLUMNAS_CLAVE.issubset(fila):
+        if COLUMNAS_CLAVE_STD.issubset(fila):
+            return i
+        if COLUMNAS_CLAVE_PREMIOS.issubset(fila):
             return i
     return 0  # fallback
 
@@ -53,6 +56,29 @@ def _cargar_df(path_xlsx: str, sheet_name: str | None = None) -> pd.DataFrame:
     header_row = _detectar_fila_header(path_xlsx, sheet_name)
 
     df = pd.read_excel(path_xlsx, sheet_name=sheet_name, engine="openpyxl", header=header_row)
+
+    # --- Lógica para PREMIOS ---
+    if "Transferencia Final" in df.columns and "Slot Attendant" in df.columns:
+        # Si no existe columna 'Fecha' explícita, asumimos la primera columna (A)
+        if "Fecha" not in df.columns:
+            df.rename(columns={df.columns[0]: "Fecha"}, inplace=True)
+        
+        # Si no existe 'Jornada', la calculamos (Fecha - 10h para ajustar día operativo)
+        if "Jornada" not in df.columns:
+            # Convertimos temporalmente para calcular
+            fechas_dt = pd.to_datetime(df["Fecha"], dayfirst=True, errors='coerce')
+            # Asumimos inicio de jornada a las 10:00 AM (restamos 10h)
+            df["Jornada"] = (fechas_dt - pd.Timedelta(hours=10)).dt.normalize()
+
+        df = df.rename(columns={
+            "Cliente": "IdCliente",
+            "Transferencia Final": "Monto",
+            "Tipo de Pago": "FormaPago"
+        })
+        df["Tipo"] = "PREMIOS"
+    else:
+        df["Tipo"] = "GETNET"
+    # ---------------------------
 
     df = df.rename(columns={
         "Id Cliente": "IdCliente",
@@ -77,46 +103,70 @@ def _cargar_df(path_xlsx: str, sheet_name: str | None = None) -> pd.DataFrame:
     df["Mes"] = df["JornadaDia"].dt.to_period("M").astype(str)
     return df
 
-def guardar_operaciones(path_xlsx: str, db, Operacion, sheet_name: str | None = None):
+def guardar_datos_db(path_xlsx: str, db, OperacionModel, PremioModel, sheet_name: str | None = None):
     """
-    Lee el Excel, limpia los datos y los guarda en la base de datos.
-    Si ya existen datos para el mes detectado, los borra antes de insertar (para evitar duplicados).
+    Lee el Excel, detecta si es Getnet o Premios, y guarda en la tabla correspondiente.
     """
     df = _cargar_df(path_xlsx, sheet_name=sheet_name)
     
     if df.empty:
-        return 0
+        return 0, "No data"
 
     # Detectar meses presentes en el archivo
     meses_en_archivo = df["Mes"].unique()
+    
+    # Detectar tipo de archivo
+    tipo_archivo = df["Tipo"].iloc[0] if "Tipo" in df.columns else "GETNET"
+    
+    TargetModel = PremioModel if tipo_archivo == "PREMIOS" else OperacionModel
 
     # Iniciar transacción
     try:
         for mes in meses_en_archivo:
-            # Borrar datos existentes de ese mes
-            db.session.query(Operacion).filter(Operacion.mes == mes).delete()
+            # Borrar datos existentes de ese mes en la tabla correspondiente
+            # Si el modelo tiene columna 'tipo', filtramos también por tipo para no borrar otros
+            query = db.session.query(TargetModel).filter(TargetModel.mes == mes)
+            if hasattr(TargetModel, 'tipo'):
+                query = query.filter(TargetModel.tipo == tipo_archivo)
+            query.delete()
         
         # Insertar nuevos datos
-        operaciones = []
+        registros = []
         for _, row in df.iterrows():
-            op = Operacion(
-                fecha=row["Fecha"],
-                jornada=row["Jornada"],
-                id_cliente=str(row.get("IdCliente", "")),
-                monto=row["Monto"],
-                voucher=str(row.get("Voucher", "")),
-                attendant=row["Attendant"],
-                validador=str(row.get("Validador", "")),
-                forma_pago=str(row.get("FormaPago", "")),
-                ingreso_cawa=str(row.get("Ingreso", "")),
-                mes=row["Mes"],
-                hora=row["Hora"]
-            )
-            operaciones.append(op)
+            if tipo_archivo == "PREMIOS":
+                reg = PremioModel(
+                    fecha=row["Fecha"],
+                    jornada=row["Jornada"],
+                    id_cliente=str(row.get("IdCliente", "")),
+                    monto=row["Monto"],
+                    propina=row.get("Propina", 0),
+                    maquina=str(row.get("Máquina", "")),
+                    attendant=row["Attendant"],
+                    validador=str(row.get("Validador", "")),
+                    forma_pago=str(row.get("FormaPago", "")),
+                    ingreso_cawa=str(row.get("Ingreso", "")),
+                    mes=row["Mes"],
+                    hora=row["Hora"]
+                )
+            else:
+                reg = OperacionModel(
+                    fecha=row["Fecha"],
+                    jornada=row["Jornada"],
+                    id_cliente=str(row.get("IdCliente", "")),
+                    monto=row["Monto"],
+                    voucher=str(row.get("Voucher", "")),
+                    attendant=row["Attendant"],
+                    validador=str(row.get("Validador", "")),
+                    forma_pago=str(row.get("FormaPago", "")),
+                    ingreso_cawa=str(row.get("Ingreso", "")),
+                    mes=row["Mes"],
+                    hora=row["Hora"]
+                )
+            registros.append(reg)
         
-        db.session.add_all(operaciones)
+        db.session.add_all(registros)
         db.session.commit()
-        return len(operaciones)
+        return len(registros), tipo_archivo
     except Exception as e:
         db.session.rollback()
         raise e
