@@ -1,0 +1,16 @@
+Estructura de Tabla "SGOS - Dreams Punta Arenas" (Premios)
+
+Columnas identificadas:
+1. Fecha (Ej: 01-01-2025 12:50)
+2. Máquina (Ej: 300751)
+3. ID Mensaje (Ej: x301720020101034492135x)
+4. Cliente (Ej: x301720020100062550408x)
+5. Monto Transferido (Ej: 1000080)
+6. Propina (Ej: 20000)
+7. Transferencia Final (Ej: 1020080)
+8. Slot Attendant (Ej: azuñigah)
+9. Monto Slot Atten. (Ej: 1020080)
+10. Validador (Ej: hpoblete, sistema-automático)
+11. Monto Validador (Ej: -)
+12. Tipo de Pago (Ej: Progressive Jackpot HP, MDC Purse Clear)
+13. Ingreso CAWA (Ej: TSW08)

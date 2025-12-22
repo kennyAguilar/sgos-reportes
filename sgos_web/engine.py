@@ -218,6 +218,13 @@ def generar_reportes(df: pd.DataFrame, asistentes_filtro: list = None) -> dict:
     )
     tabla_asistente_mes["Mes"] = tabla_asistente_mes["Mes"].apply(_formatear_periodo)
 
+    tabla_conteo_ops = (
+        df.groupby(["Mes", "Attendant"], as_index=False)
+          .agg(Operaciones=("Monto", "count"))
+          .sort_values(["Mes", "Attendant"], ascending=[True, True])
+    )
+    tabla_conteo_ops["Mes"] = tabla_conteo_ops["Mes"].apply(_formatear_periodo)
+
     qa_df = pd.DataFrame([
         ["filas_usadas", len(df)],
         ["min_fecha", str(df["Fecha"].min())],
@@ -230,6 +237,7 @@ def generar_reportes(df: pd.DataFrame, asistentes_filtro: list = None) -> dict:
         "Operaciones por Hora": tabla_hora,
         "Record Asistentes": tabla_record,
         "Asistente por Mes": tabla_asistente_mes,
+        "Conteo Operaciones": tabla_conteo_ops,
         "QA": qa_df,
     }
 

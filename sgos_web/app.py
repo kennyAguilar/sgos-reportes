@@ -288,7 +288,8 @@ def get_db_dataframe():
         "monto": "Monto",
         "attendant": "Attendant",
         "mes": "Mes",
-        "hora": "Hora"
+        "hora": "Hora",
+        "forma_pago": "FormaPago"
     })
     
     # Calcular JornadaDia
@@ -312,7 +313,8 @@ def get_premios_dataframe():
         "monto": "Monto",
         "attendant": "Attendant",
         "mes": "Mes",
-        "hora": "Hora"
+        "hora": "Hora",
+        "forma_pago": "FormaPago"
     })
     
     # Calcular JornadaDia
