@@ -115,7 +115,12 @@ app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 app.config["MAX_CONTENT_LENGTH"] = 20 * 1024 * 1024  # 20MB (ajusta si quieres)
 
 ALLOWED_EXT = {".xlsx", ".xls"}
-TABLAS_NO_FILTRAR = {"Resumen Mensual", "Operaciones por Hora"}
+TABLAS_NO_FILTRAR = {
+    "Resumen Mensual", 
+    "Operaciones por Hora", 
+    "Conteo mensual de operaciones por MDA",
+    "Conteo total de operaciones por MDA"
+}
 
 
 def allowed_file(filename: str) -> bool:
@@ -294,6 +299,7 @@ def get_db_dataframe():
     
     # Calcular JornadaDia
     df["JornadaDia"] = pd.to_datetime(df["Jornada"]).dt.normalize()
+    df["Tipo"] = "GETNET"
     
     return df
 
@@ -314,11 +320,13 @@ def get_premios_dataframe():
         "attendant": "Attendant",
         "mes": "Mes",
         "hora": "Hora",
-        "forma_pago": "FormaPago"
+        "forma_pago": "FormaPago",
+        "maquina": "Maquina"
     })
     
     # Calcular JornadaDia
     df["JornadaDia"] = pd.to_datetime(df["Jornada"]).dt.normalize()
+    df["Tipo"] = "PREMIOS"
     
     return df
 

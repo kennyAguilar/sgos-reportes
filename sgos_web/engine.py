@@ -140,7 +140,7 @@ def guardar_datos_db(path_xlsx: str, db, OperacionModel, PremioModel, sheet_name
                     id_cliente=str(row.get("IdCliente", "")),
                     monto=row["Monto"],
                     propina=row.get("Propina", 0),
-                    maquina=str(row.get("Máquina", "")),
+                    maquina=str(row.get("Máquina", "") or row.get("Maquina", "")),
                     attendant=row["Attendant"],
                     validador=str(row.get("Validador", "")),
                     forma_pago=str(row.get("FormaPago", "")),
@@ -211,18 +211,156 @@ def generar_reportes(df: pd.DataFrame, asistentes_filtro: list = None) -> dict:
     else:
         tabla_record = ops_por_jornada
 
+    # Configurar agregación: si es Premios, NO mostramos Monto
+    es_premios = False
+    if not df.empty and "Tipo" in df.columns:
+        es_premios = (df["Tipo"].iloc[0] == "PREMIOS")
+
+    agg_config = {"Operaciones": ("Monto", "count")}
+    if not es_premios:
+        agg_config["Monto"] = ("Monto", "sum")
+
     tabla_asistente_mes = (
         df.groupby(["Attendant", "Mes"], as_index=False)
-          .agg(Operaciones=("Monto", "count"), Monto=("Monto", "sum"))
+          .agg(**agg_config)
           .sort_values(["Mes", "Operaciones"], ascending=[True, False])
     )
     tabla_asistente_mes["Mes"] = tabla_asistente_mes["Mes"].apply(_formatear_periodo)
 
-    tabla_conteo_ops = (
-        df.groupby(["Mes", "Attendant"], as_index=False)
-          .agg(Operaciones=("Monto", "count"))
-          .sort_values(["Mes", "Attendant"], ascending=[True, True])
-    )
+    # Para Conteo Operaciones:
+    if es_premios and "FormaPago" in df.columns:
+        # Crear copia para no afectar el df original y normalizar
+        df_p = df.copy()
+        df_p['FormaPagoNorm'] = df_p['FormaPago'].astype(str).str.lower().str.strip()
+        
+        def classify_payment(val):
+            if val in ["jackpot hp", "progresive jackpot hp", "progressive jackpot hp"]:
+                return "Premios"
+            elif val == "mdc purse clear":
+                return "MDC purse clear"
+            elif val == "cancel credit":
+                return "Cancel Credit"
+            elif val == "chip cash handpay":
+                return "Chip Cash HandPay"
+            return None
+
+        df_p['Categoria'] = df_p['FormaPagoNorm'].apply(classify_payment)
+        
+        # Pivot table para contar por categoría
+        # Usamos 'Monto' como columna dummy para contar (count)
+        tabla_conteo_ops = pd.pivot_table(
+            df_p[df_p['Categoria'].notna()],
+            index=["Mes", "Attendant"],
+            columns="Categoria",
+            values="Monto", 
+            aggfunc="count",
+            fill_value=0
+        ).reset_index()
+        
+        # Asegurar que existan todas las columnas deseadas (rellenar con 0 si no hay datos)
+        cols_deseadas = ["Premios", "MDC purse clear", "Cancel Credit", "Chip Cash HandPay"]
+        for col in cols_deseadas:
+            if col not in tabla_conteo_ops.columns:
+                tabla_conteo_ops[col] = 0
+        
+        # Ordenar columnas: Mes, Attendant, y luego las categorías en el orden pedido
+        tabla_conteo_ops = tabla_conteo_ops[["Mes", "Attendant"] + cols_deseadas]
+        
+        # Ordenar filas: por Mes y luego por cantidad de Premios (descendente)
+        tabla_conteo_ops = tabla_conteo_ops.sort_values(["Mes", "Premios"], ascending=[True, False])
+        
+        # Eliminar nombre del índice de columnas para limpieza
+        tabla_conteo_ops.columns.name = None
+
+        # --- NUEVA TABLA: Conteo de operaciones por MDA ---
+        # Mes | Maquina | cantidad de premios (jackpot + progresive) | monto | cantidad de MDC Purse Clear | Cancel credit | Chip Cash HandPay
+        
+        # Usamos el mismo df_p que ya tiene 'Categoria' y 'FormaPagoNorm'
+        # Pero necesitamos calcular Monto SOLO para Premios.
+        # Creamos columna auxiliar MontoPremios
+        df_p["MontoPremios"] = df_p.apply(lambda x: x["Monto"] if x["Categoria"] == "Premios" else 0, axis=1)
+        
+        # Agrupamos por Mes y Maquina
+        # Calculamos conteos por categoría y suma de MontoPremios
+        
+        # Pivot para conteos
+        pivot_counts = pd.pivot_table(
+            df_p[df_p['Categoria'].notna()],
+            index=["Mes", "Maquina"],
+            columns="Categoria",
+            values="Monto", # Dummy para count
+            aggfunc="count",
+            fill_value=0
+        ).reset_index()
+        
+        # Suma de montos de premios
+        monto_premios = df_p.groupby(["Mes", "Maquina"])["MontoPremios"].sum().reset_index()
+        
+        # Merge
+        tabla_conteo_mda = pd.merge(pivot_counts, monto_premios, on=["Mes", "Maquina"], how="left")
+        
+        # Asegurar columnas
+        for col in cols_deseadas:
+            if col not in tabla_conteo_mda.columns:
+                tabla_conteo_mda[col] = 0
+                
+        # Renombrar y ordenar
+        # Queremos: Mes, Maquina, Premios, Monto (de premios), MDC, Cancel, Chip
+        tabla_conteo_mda = tabla_conteo_mda.rename(columns={"MontoPremios": "Monto"})
+        
+        cols_finales_mda = ["Mes", "Maquina", "Premios", "Monto", "MDC purse clear", "Cancel Credit", "Chip Cash HandPay"]
+        tabla_conteo_mda = tabla_conteo_mda[cols_finales_mda]
+        
+        # Ordenar
+        tabla_conteo_mda = tabla_conteo_mda.sort_values(["Mes", "Premios"], ascending=[True, False])
+        tabla_conteo_mda["Mes"] = tabla_conteo_mda["Mes"].apply(_formatear_periodo)
+        tabla_conteo_mda.columns.name = None
+
+        # --- NUEVA TABLA: Conteo total de operaciones por MDA (Acumulado) ---
+        # Maquina | cantidad de premios (jackpot + progresive) | monto | cantidad de MDC Purse Clear | Cancel credit | Chip Cash HandPay
+        
+        # Pivot para conteos totales (sin agrupar por Mes)
+        pivot_counts_total = pd.pivot_table(
+            df_p[df_p['Categoria'].notna()],
+            index=["Maquina"],
+            columns="Categoria",
+            values="Monto", 
+            aggfunc="count",
+            fill_value=0
+        ).reset_index()
+        
+        # Suma de montos de premios totales
+        monto_premios_total = df_p.groupby(["Maquina"])["MontoPremios"].sum().reset_index()
+        
+        # Merge total
+        tabla_conteo_mda_total = pd.merge(pivot_counts_total, monto_premios_total, on=["Maquina"], how="left")
+        
+        # Asegurar columnas
+        for col in cols_deseadas:
+            if col not in tabla_conteo_mda_total.columns:
+                tabla_conteo_mda_total[col] = 0
+                
+        # Renombrar y ordenar
+        tabla_conteo_mda_total = tabla_conteo_mda_total.rename(columns={"MontoPremios": "Monto"})
+        
+        # Columnas finales (sin Mes)
+        cols_finales_mda_total = ["Maquina", "Premios", "Monto", "MDC purse clear", "Cancel Credit", "Chip Cash HandPay"]
+        tabla_conteo_mda_total = tabla_conteo_mda_total[cols_finales_mda_total]
+        
+        # Ordenar por Premios descendente
+        tabla_conteo_mda_total = tabla_conteo_mda_total.sort_values(["Premios"], ascending=False)
+        tabla_conteo_mda_total.columns.name = None
+
+    else:
+        # Lógica original para Getnet
+        tabla_conteo_ops = (
+            df.groupby(["Mes", "Attendant"], as_index=False)
+              .agg(Operaciones=("Monto", "count"))
+              .sort_values(["Mes", "Operaciones"], ascending=[True, False])
+        )
+        tabla_conteo_mda = pd.DataFrame() # Vacía para Getnet
+        tabla_conteo_mda_total = pd.DataFrame() # Vacía para Getnet
+    
     tabla_conteo_ops["Mes"] = tabla_conteo_ops["Mes"].apply(_formatear_periodo)
 
     qa_df = pd.DataFrame([
@@ -232,14 +370,21 @@ def generar_reportes(df: pd.DataFrame, asistentes_filtro: list = None) -> dict:
         ["horas_presentes", ", ".join(map(str, sorted(df["Hora"].unique())))],
     ], columns=["Metrica", "Valor"])
 
-    return {
+    reportes = {
         "Resumen Mensual": tabla_mes,
         "Operaciones por Hora": tabla_hora,
         "Record Asistentes": tabla_record,
         "Asistente por Mes": tabla_asistente_mes,
         "Conteo Operaciones": tabla_conteo_ops,
-        "QA": qa_df,
     }
+    
+    if es_premios:
+        reportes["Conteo mensual de operaciones por MDA"] = tabla_conteo_mda
+        reportes["Conteo total de operaciones por MDA"] = tabla_conteo_mda_total
+        
+    reportes["QA"] = qa_df
+    
+    return reportes
 
 def procesar_sgos(path_xlsx: str, sheet_name: str | None = None, asistentes_filtro: list = None):
     df = _cargar_df(path_xlsx, sheet_name=sheet_name)
