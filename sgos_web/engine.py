@@ -272,6 +272,32 @@ def generar_reportes(df: pd.DataFrame, asistentes_filtro: list = None) -> dict:
         # Eliminar nombre del índice de columnas para limpieza
         tabla_conteo_ops.columns.name = None
 
+        # --- NUEVA TABLA: Total de conteo anual por asistente (Detallado) ---
+        tabla_conteo_anual = pd.pivot_table(
+            df_p[df_p['Categoria'].notna()],
+            index=["Attendant"],
+            columns="Categoria",
+            values="Monto", 
+            aggfunc="count",
+            fill_value=0
+        ).reset_index()
+        
+        for col in cols_deseadas:
+            if col not in tabla_conteo_anual.columns:
+                tabla_conteo_anual[col] = 0
+                
+        tabla_conteo_anual = tabla_conteo_anual[["Attendant"] + cols_deseadas]
+        tabla_conteo_anual = tabla_conteo_anual.sort_values(["Premios"], ascending=False)
+        tabla_conteo_anual.columns.name = None
+
+        # --- NUEVA TABLA: Conteo Total Anual (Simple) ---
+        tabla_conteo_anual_total = (
+            df_p[df_p['Categoria'].notna()]
+            .groupby("Attendant", as_index=False)
+            .agg(Operaciones=("Monto", "count"))
+            .sort_values("Operaciones", ascending=False)
+        )
+
         # --- NUEVA TABLA: Conteo de operaciones por MDA ---
         # Mes | Maquina | cantidad de premios (jackpot + progresive) | monto | cantidad de MDC Purse Clear | Cancel credit | Chip Cash HandPay
         
@@ -358,6 +384,12 @@ def generar_reportes(df: pd.DataFrame, asistentes_filtro: list = None) -> dict:
               .agg(Operaciones=("Monto", "count"))
               .sort_values(["Mes", "Operaciones"], ascending=[True, False])
         )
+        tabla_conteo_anual = (
+            df.groupby(["Attendant"], as_index=False)
+              .agg(Operaciones=("Monto", "count"))
+              .sort_values(["Operaciones"], ascending=False)
+        )
+        tabla_conteo_anual_total = tabla_conteo_anual.copy()
         tabla_conteo_mda = pd.DataFrame() # Vacía para Getnet
         tabla_conteo_mda_total = pd.DataFrame() # Vacía para Getnet
     
@@ -376,6 +408,8 @@ def generar_reportes(df: pd.DataFrame, asistentes_filtro: list = None) -> dict:
         "Record Asistentes": tabla_record,
         "Asistente por Mes": tabla_asistente_mes,
         "Conteo Operaciones": tabla_conteo_ops,
+        "Total de conteo anual por asistente": tabla_conteo_anual,
+        "Conteo Total Anual": tabla_conteo_anual_total,
     }
     
     if es_premios:

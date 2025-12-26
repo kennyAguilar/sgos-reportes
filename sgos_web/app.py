@@ -454,12 +454,6 @@ def download(file_id):
     )
 
 
-@app.route("/premios")
-@login_required
-def premios():
-    return render_template("construccion.html")
-
-
 @app.route("/graphs")
 @login_required
 def graphs():
