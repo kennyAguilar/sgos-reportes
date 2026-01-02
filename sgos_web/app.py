@@ -253,29 +253,34 @@ def dashboard(file_id):
     if not os.path.exists(path):
         return "Archivo no encontrado.", 404
 
-    asistentes_disponibles = obtener_asistentes(path)
+    try:
+        asistentes_disponibles = obtener_asistentes(path)
 
-    if request.method == "POST":
-        asistentes_sel = request.form.getlist("asistentes")
-        # Si el usuario no marca nada, lo tratamos como "todos" (vacío)
-        # Si prefieres lo contrario, cámbialo.
-        session[f"asistentes_sel_{file_id}"] = asistentes_sel
-        return redirect(url_for("dashboard", file_id=file_id))
+        if request.method == "POST":
+            asistentes_sel = request.form.getlist("asistentes")
+            # Si el usuario no marca nada, lo tratamos como "todos" (vacío)
+            # Si prefieres lo contrario, cámbialo.
+            session[f"asistentes_sel_{file_id}"] = asistentes_sel
+            return redirect(url_for("dashboard", file_id=file_id))
 
-    opciones = session.get(f"tablas_{file_id}", [])
-    asistentes_sel = session.get(f"asistentes_sel_{file_id}", [])
+        opciones = session.get(f"tablas_{file_id}", [])
+        asistentes_sel = session.get(f"asistentes_sel_{file_id}", [])
 
-    # Si no hay selección guardada, mostramos todos marcados por defecto
-    asistentes_seleccionados = asistentes_sel or asistentes_disponibles
+        # Si no hay selección guardada, mostramos todos marcados por defecto
+        asistentes_seleccionados = asistentes_sel or asistentes_disponibles
 
-    tablas = preparar_tablas(path, opciones, asistentes_seleccionados)
-    return render_template(
-        "dashboard.html",
-        file_id=file_id,
-        tablas_html=tablas_a_html(tablas),
-        asistentes_disponibles=asistentes_disponibles,
-        asistentes_seleccionados=asistentes_seleccionados
-    )
+        tablas = preparar_tablas(path, opciones, asistentes_seleccionados)
+        return render_template(
+            "dashboard.html",
+            file_id=file_id,
+            tablas_html=tablas_a_html(tablas),
+            asistentes_disponibles=asistentes_disponibles,
+            asistentes_seleccionados=asistentes_seleccionados
+        )
+    except Exception as e:
+        app.logger.error(f"Error en dashboard: {e}")
+        flash(f"Error al procesar el archivo: {str(e)}", "error")
+        return redirect(url_for("index"))
 
 
 def get_db_dataframe():

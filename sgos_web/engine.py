@@ -85,6 +85,7 @@ def _cargar_df(path_xlsx: str, sheet_name: str | None = None) -> pd.DataFrame:
         "Slot Attendant": "Attendant",
         "Forma Pago": "FormaPago",
         "Ingreso CAWA": "Ingreso",
+        "Máquina": "Maquina",
     })
 
     # Usar format='mixed' para soportar tanto DD-MM-YYYY como YYYY-MM-DD correctamente
