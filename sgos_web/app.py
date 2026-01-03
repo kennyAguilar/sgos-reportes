@@ -5,7 +5,7 @@ import pandas as pd
 from dotenv import load_dotenv
 from flask import Flask, render_template, request, redirect, url_for, send_file, flash, session, abort
 from flask_sqlalchemy import SQLAlchemy
-from sqlalchemy import select
+from sqlalchemy import select, func, distinct
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
@@ -283,10 +283,28 @@ def dashboard(file_id):
         return redirect(url_for("index"))
 
 
-def get_db_dataframe():
-    """Consulta la base de datos y devuelve un DataFrame con el formato esperado por engine.py"""
+def get_available_dates(model):
+    """Obtiene años y meses disponibles en la base de datos."""
     with db.engine.connect() as conn:
-        df = pd.read_sql(select(Operacion), conn)
+        result = conn.execute(select(model.mes).distinct().where(model.mes != None).order_by(model.mes.desc()))
+        meses = [row[0] for row in result]
+    
+    years = sorted(list(set(m.split('-')[0] for m in meses)), reverse=True)
+    return years, meses
+
+
+def get_db_dataframe(year=None, month=None):
+    """Consulta la base de datos y devuelve un DataFrame con el formato esperado por engine.py"""
+    query = select(Operacion)
+    
+    if year and year != "all":
+        if month and month != "all":
+            query = query.filter(Operacion.mes == f"{year}-{month}")
+        else:
+            query = query.filter(Operacion.mes.like(f"{year}-%"))
+
+    with db.engine.connect() as conn:
+        df = pd.read_sql(query, conn)
     
     if df.empty:
         return df
@@ -309,10 +327,18 @@ def get_db_dataframe():
     return df
 
 
-def get_premios_dataframe():
+def get_premios_dataframe(year=None, month=None):
     """Consulta la base de datos de PREMIOS y devuelve un DataFrame"""
+    query = select(Premio)
+    
+    if year and year != "all":
+        if month and month != "all":
+            query = query.filter(Premio.mes == f"{year}-{month}")
+        else:
+            query = query.filter(Premio.mes.like(f"{year}-%"))
+
     with db.engine.connect() as conn:
-        df = pd.read_sql(select(Premio), conn)
+        df = pd.read_sql(query, conn)
     
     if df.empty:
         return df
@@ -339,24 +365,46 @@ def get_premios_dataframe():
 @app.route("/dashboard_db", methods=["GET", "POST"])
 @login_required
 def dashboard_db():
-    df = get_db_dataframe()
+    years, _ = get_available_dates(Operacion)
     
-    if df.empty:
-        flash("No hay datos de Getnet en la base de datos.")
-        return redirect(url_for("index"))
-
-    asistentes_disponibles = sorted(df["Attendant"].dropna().unique().tolist())
-
     if request.method == "POST":
-        asistentes_sel = request.form.getlist("asistentes")
-        session["asistentes_sel_db"] = asistentes_sel
+        # Si viene del formulario de filtros
+        if "year" in request.form:
+            session["year_db"] = request.form.get("year")
+            session["month_db"] = request.form.get("month")
+        
+        # Si viene del filtro de asistentes (puede venir junto o separado)
+        # El form de asistentes en dashboard.html usa 'asistentes'
+        if "asistentes" in request.form or "year" in request.form:
+             # Si se posteó el form, actualizamos asistentes si están presentes
+             # OJO: Si el form incluye todo, request.form.getlist("asistentes") estará vacío si desmarcó todo
+             # Pero si es solo cambio de año, tal vez no envíe asistentes si están en otro form.
+             # En dashboard.html pondremos todo en un mismo form o manejaremos la persistencia.
+             # Asumiremos que el POST viene del dashboard y trae todo.
+             session["asistentes_sel_db"] = request.form.getlist("asistentes")
+
         return redirect(url_for("dashboard_db"))
 
+    selected_year = session.get("year_db", "all")
+    selected_month = session.get("month_db", "all")
+
+    df = get_db_dataframe(selected_year, selected_month)
+    
+    asistentes_disponibles = []
+    if not df.empty:
+        asistentes_disponibles = sorted(df["Attendant"].dropna().unique().tolist())
+    else:
+        flash("No hay datos para el periodo seleccionado.")
+
     asistentes_sel = session.get("asistentes_sel_db", [])
+    # Si no hay selección guardada, o la lista de disponibles cambió y la selección ya no es válida...
+    # Por simplicidad: si hay selección guardada, la usamos. Si no, todos.
     asistentes_seleccionados = asistentes_sel or asistentes_disponibles
 
-    # Generar reportes usando el DataFrame directo
-    tablas = generar_reportes(df, asistentes_seleccionados)
+    if not df.empty:
+        tablas = generar_reportes(df, asistentes_seleccionados)
+    else:
+        tablas = {}
     
     return render_template(
         "dashboard.html",
@@ -364,31 +412,46 @@ def dashboard_db():
         tablas_html=tablas_a_html(tablas),
         asistentes_disponibles=asistentes_disponibles,
         asistentes_seleccionados=asistentes_seleccionados,
-        titulo_dashboard="Histórico Getnet"
+        titulo_dashboard="Histórico Getnet",
+        years=years,
+        selected_year=selected_year,
+        selected_month=selected_month
     )
 
 
 @app.route("/dashboard_premios", methods=["GET", "POST"])
 @login_required
 def dashboard_premios():
-    df = get_premios_dataframe()
+    years, _ = get_available_dates(Premio)
     
-    if df.empty:
-        flash("No hay datos de Premios en la base de datos.")
-        return redirect(url_for("index"))
-
-    asistentes_disponibles = sorted(df["Attendant"].dropna().unique().tolist())
-
     if request.method == "POST":
-        asistentes_sel = request.form.getlist("asistentes")
-        session["asistentes_sel_premios"] = asistentes_sel
+        if "year" in request.form:
+            session["year_premios"] = request.form.get("year")
+            session["month_premios"] = request.form.get("month")
+        
+        if "asistentes" in request.form or "year" in request.form:
+            session["asistentes_sel_premios"] = request.form.getlist("asistentes")
+            
         return redirect(url_for("dashboard_premios"))
+
+    selected_year = session.get("year_premios", "all")
+    selected_month = session.get("month_premios", "all")
+
+    df = get_premios_dataframe(selected_year, selected_month)
+    
+    asistentes_disponibles = []
+    if not df.empty:
+        asistentes_disponibles = sorted(df["Attendant"].dropna().unique().tolist())
+    else:
+        flash("No hay datos de Premios para el periodo seleccionado.")
 
     asistentes_sel = session.get("asistentes_sel_premios", [])
     asistentes_seleccionados = asistentes_sel or asistentes_disponibles
 
-    # Generar reportes usando el DataFrame directo
-    tablas = generar_reportes(df, asistentes_seleccionados)
+    if not df.empty:
+        tablas = generar_reportes(df, asistentes_seleccionados)
+    else:
+        tablas = {}
     
     return render_template(
         "dashboard.html",
@@ -396,7 +459,10 @@ def dashboard_premios():
         tablas_html=tablas_a_html(tablas),
         asistentes_disponibles=asistentes_disponibles,
         asistentes_seleccionados=asistentes_seleccionados,
-        titulo_dashboard="Histórico Premios"
+        titulo_dashboard="Histórico Premios",
+        years=years,
+        selected_year=selected_year,
+        selected_month=selected_month
     )
 
 
@@ -404,10 +470,14 @@ def dashboard_premios():
 @app.route("/download/<file_id>", methods=["GET"])
 def download(file_id):
     if file_id == "db":
-        df = get_db_dataframe()
+        selected_year = session.get("year_db", "all")
+        selected_month = session.get("month_db", "all")
+        df = get_db_dataframe(selected_year, selected_month)
         download_name = "reporte_historico_getnet.xlsx"
     elif file_id == "premios_db":
-        df = get_premios_dataframe()
+        selected_year = session.get("year_premios", "all")
+        selected_month = session.get("month_premios", "all")
+        df = get_premios_dataframe(selected_year, selected_month)
         download_name = "reporte_historico_premios.xlsx"
     else:
         df = None
