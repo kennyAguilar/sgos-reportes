@@ -194,7 +194,7 @@ def generar_reportes(df: pd.DataFrame, asistentes_filtro: list = None) -> dict:
         .reset_index()
     )
     # Convertir a string para que Excel lo trate como categorías (texto) y no números
-    tabla_hora["Hora"] = tabla_hora["Hora"].astype(str)
+    # tabla_hora["Hora"] = tabla_hora["Hora"].astype(str) # Comentado a pedido del usuario (quiere números)
 
     ops_por_jornada = (
         df.groupby(["Attendant", "JornadaDia"], as_index=False)
@@ -390,7 +390,7 @@ def generar_reportes(df: pd.DataFrame, asistentes_filtro: list = None) -> dict:
               .agg(Operaciones=("Monto", "count"))
               .sort_values(["Operaciones"], ascending=False)
         )
-        tabla_conteo_anual_total = tabla_conteo_anual.copy()
+        # tabla_conteo_anual_total = tabla_conteo_anual.copy() # Redundante en Getnet
         tabla_conteo_mda = pd.DataFrame() # Vacía para Getnet
         tabla_conteo_mda_total = pd.DataFrame() # Vacía para Getnet
     
@@ -410,10 +410,10 @@ def generar_reportes(df: pd.DataFrame, asistentes_filtro: list = None) -> dict:
         "Asistente por Mes": tabla_asistente_mes,
         "Conteo Operaciones": tabla_conteo_ops,
         "Total de conteo anual por asistente": tabla_conteo_anual,
-        "Conteo Total Anual": tabla_conteo_anual_total,
     }
     
     if es_premios:
+        reportes["Conteo Total Anual"] = tabla_conteo_anual_total
         reportes["Conteo mensual de operaciones por MDA"] = tabla_conteo_mda
         reportes["Conteo total de operaciones por MDA"] = tabla_conteo_mda_total
         
