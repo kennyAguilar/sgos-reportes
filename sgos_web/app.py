@@ -532,12 +532,17 @@ def download(file_id):
 @app.route("/graphs")
 @login_required
 def graphs():
-    df = get_db_dataframe()
+    year = request.args.get("year")
+    years, _ = get_available_dates(Operacion)
+
+    df = get_db_dataframe(year=year)
     if df.empty:
         # Si no hay datos, pasamos listas vacías para que no falle el JS
         return render_template("graphs.html", 
                                data_mes={"labels": [], "ops": [], "monto": []},
-                               data_hora={"labels": [], "ops": [], "monto": []})
+                               data_hora={"labels": [], "ops": [], "monto": []},
+                               years=years,
+                               selected_year=year)
 
     # Reutilizamos la lógica de engine para agrupar
     tablas = generar_reportes(df)
@@ -557,7 +562,7 @@ def graphs():
         "monto": df_hora["Monto"].tolist()
     }
 
-    return render_template("graphs.html", data_mes=data_mes, data_hora=data_hora)
+    return render_template("graphs.html", data_mes=data_mes, data_hora=data_hora, years=years, selected_year=year)
 
 
 if __name__ == "__main__":
