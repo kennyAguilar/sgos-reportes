@@ -9,7 +9,7 @@
         
         <form action="{{ url_for('graphs') }}" method="get" class="d-flex align-items-center">
             <label for="year" class="me-2 text-light">Filtrar por Año:</label>
-            <select name="year" id="year" class="form-select form-select-sm me-2" style="width: auto;" onchange="this.form.submit()">
+            <select name="year" id="year" class="form-select form-select-sm me-2 w-auto" onchange="this.form.submit()">
                 <option value="">Todos</option>
                 {% for y in years %}
                 <option value="{{ y }}" {% if selected_year == y %}selected{% endif %}>{{ y }}</option>
