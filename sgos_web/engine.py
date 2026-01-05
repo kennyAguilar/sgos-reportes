@@ -179,15 +179,28 @@ def generar_reportes(df: pd.DataFrame, asistentes_filtro: list = None) -> dict:
     if asistentes_filtro:
         df = df[df["Attendant"].isin(asistentes_filtro)].copy()
 
+    # Detectar si es premios
+    es_premios = False
+    if not df.empty and "Tipo" in df.columns:
+        es_premios = (df["Tipo"].iloc[0] == "PREMIOS")
+
+    # Definir DF para cálculos de montos/operaciones generales (Resumen Mensual y Por Hora)
+    # Si es Premios, filtramos solo los premios reales para estos resúmenes
+    df_calc = df
+    if es_premios and "FormaPago" in df.columns:
+        tipos_validos = ["jackpot hp", "progresive jackpot hp", "progressive jackpot hp"]
+        # Normalizar para comparar
+        df_calc = df[df["FormaPago"].astype(str).str.lower().str.strip().isin(tipos_validos)].copy()
+
     tabla_mes = (
-        df.groupby("Mes", as_index=False)
+        df_calc.groupby("Mes", as_index=False)
           .agg(Operaciones=("Monto", "count"), Monto=("Monto", "sum"))
           .sort_values("Mes")
     )
     tabla_mes["Mes"] = tabla_mes["Mes"].apply(_formatear_periodo)
 
     tabla_hora = (
-        df.groupby("Hora", as_index=False)
+        df_calc.groupby("Hora", as_index=False)
           .agg(Operaciones=("Monto", "count"), Monto=("Monto", "sum"))
         .set_index("Hora")
         .reindex(ORDEN_HORAS, fill_value=0)
@@ -213,10 +226,10 @@ def generar_reportes(df: pd.DataFrame, asistentes_filtro: list = None) -> dict:
         tabla_record = ops_por_jornada
 
     # Configurar agregación: si es Premios, NO mostramos Monto
-    es_premios = False
-    if not df.empty and "Tipo" in df.columns:
-        es_premios = (df["Tipo"].iloc[0] == "PREMIOS")
-
+    # (es_premios ya fue calculado arriba, pero si df estaba vacío podría no estar definido o ser False)
+    # Re-verificamos o usamos la variable si está en scope.
+    # Como insertamos código antes, 'es_premios' ya está definido arriba.
+    
     agg_config = {"Operaciones": ("Monto", "count")}
     if not es_premios:
         agg_config["Monto"] = ("Monto", "sum")
@@ -232,6 +245,16 @@ def generar_reportes(df: pd.DataFrame, asistentes_filtro: list = None) -> dict:
     if es_premios and "FormaPago" in df.columns:
         # Crear copia para no afectar el df original y normalizar
         df_p = df.copy()
+        
+        # Intentar convertir Maquina a número para evitar "Number stored as text" en Excel
+        if "Maquina" in df_p.columns:
+            # Convertimos a numérico, los errores se vuelven NaN
+            maquina_num = pd.to_numeric(df_p["Maquina"], errors='coerce')
+            # Reemplazamos solo los valores que se pudieron convertir exitosamente
+            # Usamos combine_first o fillna. 
+            # Si maquina_num tiene valor, lo usamos. Si es NaN, usamos el original.
+            df_p["Maquina"] = maquina_num.fillna(df_p["Maquina"])
+
         df_p['FormaPagoNorm'] = df_p['FormaPago'].astype(str).str.lower().str.strip()
         
         def classify_payment(val):

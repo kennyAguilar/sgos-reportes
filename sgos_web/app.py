@@ -542,7 +542,9 @@ def graphs():
                                data_mes={"labels": [], "ops": [], "monto": []},
                                data_hora={"labels": [], "ops": [], "monto": []},
                                years=years,
-                               selected_year=year)
+                               selected_year=year,
+                               title="Dashboard de Reportes",
+                               endpoint="graphs")
 
     # Reutilizamos la lógica de engine para agrupar
     tablas = generar_reportes(df)
@@ -562,7 +564,61 @@ def graphs():
         "monto": df_hora["Monto"].tolist()
     }
 
-    return render_template("graphs.html", data_mes=data_mes, data_hora=data_hora, years=years, selected_year=year)
+    return render_template("graphs.html", 
+                           data_mes=data_mes, 
+                           data_hora=data_hora, 
+                           years=years, 
+                           selected_year=year,
+                           title="Dashboard de Reportes",
+                           endpoint="graphs")
+
+
+@app.route("/graphs_premios")
+@login_required
+def graphs_premios():
+    year = request.args.get("year")
+    years, _ = get_available_dates(Premio)
+
+    df = get_premios_dataframe(year=year)
+    
+    # Filtrar solo Premios y Premios Progresivos
+    if not df.empty:
+        tipos_validos = ["jackpot hp", "progresive jackpot hp", "progressive jackpot hp"]
+        df = df[df["FormaPago"].astype(str).str.lower().str.strip().isin(tipos_validos)].copy()
+
+    if df.empty:
+        return render_template("graphs.html", 
+                               data_mes={"labels": [], "ops": [], "monto": []},
+                               data_hora={"labels": [], "ops": [], "monto": []},
+                               years=years,
+                               selected_year=year,
+                               title="Dashboard de Premios",
+                               endpoint="graphs_premios")
+
+    tablas = generar_reportes(df)
+    
+    df_mes = tablas["Resumen Mensual"]
+    df_hora = tablas["Operaciones por Hora"]
+
+    data_mes = {
+        "labels": df_mes["Mes"].tolist(),
+        "ops": df_mes["Operaciones"].tolist(),
+        "monto": df_mes["Monto"].tolist()
+    }
+
+    data_hora = {
+        "labels": df_hora["Hora"].tolist(),
+        "ops": df_hora["Operaciones"].tolist(),
+        "monto": df_hora["Monto"].tolist()
+    }
+
+    return render_template("graphs.html", 
+                           data_mes=data_mes, 
+                           data_hora=data_hora, 
+                           years=years, 
+                           selected_year=year,
+                           title="Dashboard de Premios",
+                           endpoint="graphs_premios")
 
 
 if __name__ == "__main__":
