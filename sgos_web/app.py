@@ -561,7 +561,9 @@ def graphs():
     data_hora = {
         "labels": df_hora["Hora"].tolist(),
         "ops": df_hora["Operaciones"].tolist(),
-        "monto": df_hora["Monto"].tolist()
+        "monto": df_hora["Monto"].tolist(),
+        "ops_avg": df_hora["Operaciones Promedio"].tolist(),
+        "monto_avg": df_hora["Monto Promedio"].tolist()
     }
 
     return render_template("graphs.html", 
@@ -609,7 +611,9 @@ def graphs_premios():
     data_hora = {
         "labels": df_hora["Hora"].tolist(),
         "ops": df_hora["Operaciones"].tolist(),
-        "monto": df_hora["Monto"].tolist()
+        "monto": df_hora["Monto"].tolist(),
+        "ops_avg": df_hora["Operaciones Promedio"].tolist(),
+        "monto_avg": df_hora["Monto Promedio"].tolist()
     }
 
     return render_template("graphs.html", 

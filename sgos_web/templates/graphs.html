@@ -49,7 +49,7 @@
         <div class="col-md-6 mb-4">
             <div class="card h-100 shadow-sm bg-dark text-light border-secondary">
                 <div class="card-header border-secondary">
-                    <h5 class="card-title mb-0"><i class="bi bi-clock"></i> Operaciones por Hora</h5>
+                    <h5 class="card-title mb-0"><i class="bi bi-clock"></i> Operaciones por Hora (Promedio)</h5>
                 </div>
                 <div class="card-body">
                     <canvas id="chartHoraOps"></canvas>
@@ -61,7 +61,7 @@
         <div class="col-md-6 mb-4">
             <div class="card h-100 shadow-sm bg-dark text-light border-secondary">
                 <div class="card-header border-secondary">
-                    <h5 class="card-title mb-0"><i class="bi bi-cash-coin"></i> Montos por Hora</h5>
+                    <h5 class="card-title mb-0"><i class="bi bi-cash-coin"></i> Montos por Hora (Promedio)</h5>
                 </div>
                 <div class="card-body">
                     <canvas id="chartHoraMonto"></canvas>
@@ -116,30 +116,30 @@
         options: { responsive: true, maintainAspectRatio: false }
     });
 
-    // 3. Operaciones por Hora
+    // 3. Operaciones por Hora (Promedio)
     new Chart(document.getElementById('chartHoraOps'), {
         type: 'bar',
         data: {
             labels: dataHora.labels,
             datasets: [{
-                label: 'Operaciones',
-                data: dataHora.ops,
-                backgroundColor: 'rgba(255, 206, 86, 0.6)',
-                borderColor: 'rgba(255, 206, 86, 1)',
+                label: 'Promedio Operaciones',
+                data: dataHora.ops_avg,
+                backgroundColor: 'rgba(54, 162, 235, 0.6)',
+                borderColor: 'rgba(54, 162, 235, 1)',
                 borderWidth: 1
             }]
         },
         options: { responsive: true, maintainAspectRatio: false }
     });
 
-    // 4. Montos por Hora
+    // 4. Montos por Hora (Promedio)
     new Chart(document.getElementById('chartHoraMonto'), {
         type: 'line',
         data: {
             labels: dataHora.labels,
             datasets: [{
-                label: 'Monto Total',
-                data: dataHora.monto,
+                label: 'Promedio Monto ($)',
+                data: dataHora.monto_avg,
                 backgroundColor: 'rgba(255, 99, 132, 0.2)',
                 borderColor: 'rgba(255, 99, 132, 1)',
                 borderWidth: 2,

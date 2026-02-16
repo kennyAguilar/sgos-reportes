@@ -206,6 +206,17 @@ def generar_reportes(df: pd.DataFrame, asistentes_filtro: list = None) -> dict:
         .reindex(ORDEN_HORAS, fill_value=0)
         .reset_index()
     )
+    
+    # Calcular promedios por día (Jornada)
+    total_dias = df_calc["JornadaDia"].nunique()
+    if total_dias == 0:
+        total_dias = 1
+        
+    tabla_hora["Operaciones Promedio"] = (tabla_hora["Operaciones"] / total_dias).round(2)
+    tabla_hora["Monto Promedio"] = (tabla_hora["Monto"] / total_dias).round(2)
+
+    # Convertir a string para que Excel lo trate como categorías (texto) y no números
+    # tabla_hora["Hora"] = tabla_hora["Hora"].astype(str) # Comentado a pedido del usuario (quiere números)
     # Convertir a string para que Excel lo trate como categorías (texto) y no números
     # tabla_hora["Hora"] = tabla_hora["Hora"].astype(str) # Comentado a pedido del usuario (quiere números)
 
