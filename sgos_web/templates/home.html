@@ -1,0 +1,38 @@
+{% extends "layout.html" %}
+
+{% block title %}SGOS | Inicio{% endblock %}
+
+{% block content %}
+<div class="hero">
+  <h1><i class="bi bi-grid-3x3-gap-fill"></i> Panel de Control</h1>
+  <p>Selecciona el módulo con el que deseas trabajar</p>
+</div>
+
+<div class="row g-4 justify-content-center">
+  <!-- SGOS Reportes -->
+  <div class="col-md-5">
+    <a href="{{ url_for('index') }}" class="text-decoration-none">
+      <div class="card module-card h-100 text-center py-5">
+        <div class="card-body">
+          <i class="bi bi-file-earmark-spreadsheet module-icon text-primary"></i>
+          <h3 class="mt-3 text-white fw-bold">SGOS Reportes</h3>
+          <p class="text-light opacity-75 mb-0">Getnet &amp; Premios — Carga de archivos, dashboards históricos y gráficos de operaciones.</p>
+        </div>
+      </div>
+    </a>
+  </div>
+
+  <!-- Auditoría COMPS -->
+  <div class="col-md-5">
+    <a href="{{ url_for('comps.comps_index') }}" class="text-decoration-none">
+      <div class="card module-card h-100 text-center py-5">
+        <div class="card-body">
+          <i class="bi bi-shield-check module-icon text-success"></i>
+          <h3 class="mt-3 text-white fw-bold">Auditoría COMPS</h3>
+          <p class="text-light opacity-75 mb-0">SRW, cortesías, premios, mesas/puntos — Análisis, control de invitaciones y auditoría.</p>
+        </div>
+      </div>
+    </a>
+  </div>
+</div>
+{% endblock %}

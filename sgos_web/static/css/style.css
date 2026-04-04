@@ -359,3 +359,35 @@ body.login-page {
     width: 100%;
   }
 }
+
+/* Module Selector (home.html) */
+.module-card {
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  background: rgba(30, 41, 59, 0.8);
+  border-radius: 15px;
+  padding: 40px 30px;
+  text-align: center;
+  transition: all 0.3s ease;
+  text-decoration: none;
+  color: #e2e8f0;
+  display: block;
+}
+.module-card:hover {
+  border-color: rgba(59, 130, 246, 0.5);
+  transform: translateY(-5px);
+  box-shadow: 0 12px 40px rgba(59, 130, 246, 0.2);
+  color: #fff;
+}
+.module-icon {
+  font-size: 3.5rem;
+  margin-bottom: 15px;
+  display: block;
+}
+.module-card h3 {
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+.module-card p {
+  color: #94a3b8;
+  margin: 0;
+}

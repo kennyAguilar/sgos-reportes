@@ -4,7 +4,6 @@ from io import BytesIO
 import pandas as pd
 from dotenv import load_dotenv
 from flask import Flask, render_template, request, redirect, url_for, send_file, flash, session, abort
-from flask_sqlalchemy import SQLAlchemy
 from sqlalchemy import select, func, distinct
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -34,7 +33,12 @@ if not db_url:
 app.config['SQLALCHEMY_DATABASE_URI'] = db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-db = SQLAlchemy(app)
+try:
+    from sgos_web.extensions import db
+except ImportError:
+    from extensions import db
+
+db.init_app(app)
 
 # --- MODELOS ---
 class User(UserMixin, db.Model):
@@ -96,6 +100,69 @@ class Premio(db.Model):
 
     def __repr__(self):
         return f"<Premio {self.id} - {self.attendant} - {self.monto}>"
+
+# --- MODELOS COMPS ---
+class SrwJugador(db.Model):
+    __tablename__ = 'srw_jugadores'
+    id = db.Column(db.Integer, primary_key=True)
+    gaming_date = db.Column(db.String(10))
+    player_id = db.Column(db.String(50))
+    full_name = db.Column(db.String(200))
+    player_level = db.Column(db.String(50))
+    coin_in = db.Column(db.Float, default=0)
+    total_games = db.Column(db.Float, default=0)
+    promo_in = db.Column(db.Float, default=0)
+
+class Cortesia(db.Model):
+    __tablename__ = 'cortesias'
+    id = db.Column(db.Integer, primary_key=True)
+    fecha_jornada = db.Column(db.String(10))
+    cliente_id = db.Column(db.String(50))
+    nombre_cliente = db.Column(db.String(200))
+    descripcion_cat = db.Column(db.String(200))
+    descripcion_prod = db.Column(db.String(200))
+    micros = db.Column(db.Float, default=0)
+    estado = db.Column(db.String(50))
+    usuario_id = db.Column(db.String(50))
+    nombre_usuario = db.Column(db.String(200))
+
+class PremioComps(db.Model):
+    __tablename__ = 'premios_comps'
+    id = db.Column(db.Integer, primary_key=True)
+    fecha_jornada = db.Column(db.String(10))
+    cliente_id = db.Column(db.String(50))
+    transferencia_final = db.Column(db.Float, default=0)
+    tipo_pago = db.Column(db.String(100))
+
+class MesaPuntos(db.Model):
+    __tablename__ = 'mesas_puntos'
+    id = db.Column(db.Integer, primary_key=True)
+    fecha_operacion = db.Column(db.String(10))
+    cliente_id = db.Column(db.String(50))
+    cliente_nombre = db.Column(db.String(200))
+    puntos = db.Column(db.Float, default=0)
+    coin_in_puntos = db.Column(db.Float, default=0)
+
+class Jefatura(db.Model):
+    __tablename__ = 'jefaturas'
+    id = db.Column(db.Integer, primary_key=True)
+    usuario_id = db.Column(db.String(50), unique=True)
+    nombre = db.Column(db.String(200))
+    area = db.Column(db.String(100))
+
+class CategoriaNivel(db.Model):
+    __tablename__ = 'categorias_nivel'
+    id = db.Column(db.Integer, primary_key=True)
+    categoria = db.Column(db.String(100), unique=True)
+    porcentaje = db.Column(db.Float, default=0)
+
+class CargaLog(db.Model):
+    __tablename__ = 'carga_log'
+    id = db.Column(db.Integer, primary_key=True)
+    tabla = db.Column(db.String(50))
+    archivo = db.Column(db.String(200))
+    filas = db.Column(db.Integer)
+    fecha_carga = db.Column(db.String(50))
 
 # Crear tablas si no existen (solo para desarrollo local/inicial)
 with app.app_context():
@@ -184,7 +251,7 @@ def tablas_a_html(tablas: dict) -> dict:
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if current_user.is_authenticated:
-        return redirect(url_for("index"))
+        return redirect(url_for("home"))
         
     if request.method == "POST":
         username = request.form.get("username")
@@ -193,7 +260,7 @@ def login():
         
         if user and user.check_password(password):
             login_user(user)
-            return redirect(url_for("index"))
+            return redirect(url_for("home"))
         else:
             flash("Usuario o contraseña incorrectos.")
             
@@ -207,7 +274,13 @@ def logout():
     return redirect(url_for("login"))
 
 
-@app.route("/", methods=["GET", "POST"])
+@app.route("/")
+@login_required
+def home():
+    return render_template("home.html")
+
+
+@app.route("/sgos", methods=["GET", "POST"])
 @login_required
 def index():
     if request.method == "POST":
@@ -623,6 +696,14 @@ def graphs_premios():
                            selected_year=year,
                            title="Dashboard de Premios",
                            endpoint="graphs_premios")
+
+
+try:
+    from sgos_web.comps_routes import comps_bp
+except ImportError:
+    from comps_routes import comps_bp
+
+app.register_blueprint(comps_bp)
 
 
 if __name__ == "__main__":

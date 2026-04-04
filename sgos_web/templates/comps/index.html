@@ -1,0 +1,105 @@
+{% extends "comps/layout_comps.html" %}
+{% block title %}COMPS — Carga de Datos{% endblock %}
+
+{% block content %}
+<h2 class="mb-4"><i class="bi bi-upload"></i> Carga de Datos COMPS</h2>
+
+<div class="row g-4 mb-4">
+  <div class="col-md-3">
+    <div class="card text-center h-100">
+      <div class="card-body">
+        <h5 class="card-title text-info">SRW Jugadores</h5>
+        <h2 class="text-white">{{ stats.get('srw_jugadores', 0)|int }}</h2>
+        <small class="text-light">registros</small>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card text-center h-100">
+      <div class="card-body">
+        <h5 class="card-title text-success">Cortesías</h5>
+        <h2 class="text-white">{{ stats.get('cortesias', 0)|int }}</h2>
+        <small class="text-light">registros</small>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card text-center h-100">
+      <div class="card-body">
+        <h5 class="card-title text-warning">Premios</h5>
+        <h2 class="text-white">{{ stats.get('premios_comps', 0)|int }}</h2>
+        <small class="text-light">registros</small>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-3">
+    <div class="card text-center h-100">
+      <div class="card-body">
+        <h5 class="card-title text-danger">Mesas/Puntos</h5>
+        <h2 class="text-white">{{ stats.get('mesas_puntos', 0)|int }}</h2>
+        <small class="text-light">registros</small>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card mb-4">
+  <div class="card-body">
+    <h5 class="card-title"><i class="bi bi-cloud-upload"></i> Subir Archivos</h5>
+    <form method="POST" action="{{ url_for('comps.cargar_datos') }}" enctype="multipart/form-data">
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label"><i class="bi bi-people"></i> SRW Jugadores (.xlsx)</label>
+          <input type="file" class="form-control" name="archivo_srw" accept=".xls,.xlsx">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label"><i class="bi bi-gift"></i> Cortesías (.xlsx)</label>
+          <input type="file" class="form-control" name="archivo_cortesias" accept=".xls,.xlsx">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label"><i class="bi bi-trophy"></i> Premios (.xlsx)</label>
+          <input type="file" class="form-control" name="archivo_premios" accept=".xls,.xlsx">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label"><i class="bi bi-dice-5"></i> Mesas/Puntos (.xlsx)</label>
+          <input type="file" class="form-control" name="archivo_mesas_puntos" accept=".xls,.xlsx">
+        </div>
+        <div class="col-md-6">
+          <label class="form-label"><i class="bi bi-diagram-3"></i> Jefaturas (.xlsx)</label>
+          <input type="file" class="form-control" name="archivo_jefaturas" accept=".xls,.xlsx">
+        </div>
+        <div class="col-12 text-end">
+          <button type="submit" class="btn btn-primary btn-lg">
+            <i class="bi bi-cloud-upload"></i> Cargar Datos
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% if log %}
+<div class="card">
+  <div class="card-body">
+    <h5 class="card-title"><i class="bi bi-clock-history"></i> Historial de Cargas</h5>
+    <div class="table-responsive">
+      <table class="table table-dark table-striped table-hover">
+        <thead>
+          <tr><th>Tabla</th><th>Archivo</th><th>Filas</th><th>Fecha Carga</th></tr>
+        </thead>
+        <tbody>
+          {% for entry in log %}
+          <tr>
+            <td>{{ entry.tabla }}</td>
+            <td>{{ entry.archivo }}</td>
+            <td>{{ entry.filas }}</td>
+            <td>{{ entry.fecha_carga }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

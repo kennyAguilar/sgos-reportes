@@ -1,0 +1,94 @@
+{% extends "comps/layout_comps.html" %}
+{% block title %}COMPS — Invitaciones MDJ{% endblock %}
+
+{% block content %}
+<h2 class="mb-4"><i class="bi bi-suit-spade"></i> Control de Invitaciones — MDJ</h2>
+
+<!-- Filtros -->
+<div class="card mb-4">
+  <div class="card-body">
+    <form method="GET" class="row g-3 align-items-end">
+      <div class="col-md-3">
+        <label class="form-label">Año</label>
+        <select name="anio" class="form-select">
+          <option value="">Todos</option>
+          {% for a in anios %}<option value="{{ a }}" {{ 'selected' if a == anio_actual }}>{{ a }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Mes</label>
+        <select name="mes" class="form-select">
+          <option value="">Todos</option>
+          {% for m in meses_disp %}<option value="{{ m }}" {{ 'selected' if m == mes_actual }}>{{ m }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Jefe MDJ</label>
+        <select name="jefe" class="form-select">
+          <option value="">Todos</option>
+          {% for uid, nombre in jefes_disp %}<option value="{{ uid }}" {{ 'selected' if uid == jefe_actual }}>{{ nombre }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <button type="submit" class="btn btn-primary"><i class="bi bi-funnel"></i> Filtrar</button>
+        <a href="{{ url_for('comps.control_invitaciones_mdj') }}" class="btn btn-outline-secondary">Limpiar</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- KPIs -->
+<div class="row g-3 mb-4">
+  <div class="col-md-4">
+    <div class="card text-center h-100"><div class="card-body">
+      <h6 class="text-light">Cortesías MDJ</h6>
+      <h3 class="text-success">${{ "{:,.0f}".format(total_cortesias_periodo) }}</h3>
+    </div></div>
+  </div>
+  <div class="col-md-4">
+    <div class="card text-center h-100"><div class="card-body">
+      <h6 class="text-light">Coin-In Mesas</h6>
+      <h3 class="text-info">${{ "{:,.0f}".format(total_coin_in_periodo) }}</h3>
+    </div></div>
+  </div>
+  <div class="col-md-4">
+    <div class="card text-center h-100"><div class="card-body">
+      <h6 class="text-light">% Cortesía/CoinIn</h6>
+      <h3 class="text-warning">{{ "%.3f"|format(pct_cortesias_coin_in) }}%</h3>
+    </div></div>
+  </div>
+</div>
+
+<!-- Tabla -->
+<div class="card">
+  <div class="card-body">
+    <h5 class="card-title">Detalle MDJ — Días totales: {{ dias_totales }}</h5>
+    <div class="table-responsive">
+      <table class="table table-dark table-striped table-hover table-sm">
+        <thead>
+          <tr>
+            <th>Nombre</th><th>Nivel</th><th>Días</th><th>%Asist.</th>
+            <th>Coin-In</th><th>Cortesías</th><th>Monto</th>
+            <th>Invitación</th><th>Saldo</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in resultados %}
+          <tr class="{{ 'table-danger' if r.saldo < 0 else '' }}">
+            <td>{{ r.nombre }}</td>
+            <td><span class="badge bg-info">{{ r.nivel }}</span></td>
+            <td>{{ r.dias_asistidos }}</td>
+            <td>{{ r.pct_asistencia }}%</td>
+            <td>${{ "{:,.0f}".format(r.coin_in_mensual or 0) }}</td>
+            <td>{{ r.total_cortesias }}</td>
+            <td>${{ "{:,.0f}".format(r.monto_micros or 0) }}</td>
+            <td>${{ "{:,.0f}".format(r.invitacion_mensual or 0) }}</td>
+            <td class="{{ 'text-danger fw-bold' if r.saldo < 0 else 'text-success' }}">${{ "{:,.0f}".format(r.saldo) }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}

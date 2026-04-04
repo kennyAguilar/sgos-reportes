@@ -1,0 +1,136 @@
+{% extends "comps/layout_comps.html" %}
+{% block title %}COMPS — Control de Invitaciones{% endblock %}
+
+{% block content %}
+<h2 class="mb-4"><i class="bi bi-people"></i> Control de Invitaciones — General</h2>
+
+<!-- Filtros -->
+<div class="card mb-4">
+  <div class="card-body">
+    <form method="GET" class="row g-3 align-items-end">
+      <div class="col-md-2">
+        <label class="form-label">Año</label>
+        <select name="anio" class="form-select">
+          <option value="">Todos</option>
+          {% for a in anios %}<option value="{{ a }}" {{ 'selected' if a == anio_actual }}>{{ a }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">Mes</label>
+        <select name="mes" class="form-select">
+          <option value="">Todos</option>
+          {% for m in meses_disp %}<option value="{{ m }}" {{ 'selected' if m == mes_actual }}>{{ m }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-md-2">
+        <label class="form-label">Sección</label>
+        <select name="area" class="form-select" onchange="this.form.submit()">
+          <option value="">Todas</option>
+          {% for a in areas %}<option value="{{ a }}" {{ 'selected' if a == area_actual }}>{{ a }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Jefe</label>
+        <select name="jefe" class="form-select">
+          <option value="">Todos</option>
+          {% for uid, nombre in jefes_disp %}<option value="{{ uid }}" {{ 'selected' if uid == jefe_actual }}>{{ nombre }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <button type="submit" class="btn btn-primary"><i class="bi bi-funnel"></i> Filtrar</button>
+        <a href="{{ url_for('comps.control_invitaciones') }}" class="btn btn-outline-secondary">Limpiar</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- KPIs -->
+<div class="row g-3 mb-4">
+  <div class="col-md-3">
+    <div class="card text-center h-100"><div class="card-body">
+      <h6 class="text-light">Cortesías Período</h6>
+      <h3 class="text-success">${{ "{:,.0f}".format(total_cortesias_periodo) }}</h3>
+    </div></div>
+  </div>
+  <div class="col-md-3">
+    <div class="card text-center h-100"><div class="card-body">
+      <h6 class="text-light">Coin-In Período</h6>
+      <h3 class="text-info">${{ "{:,.0f}".format(total_coin_in_periodo) }}</h3>
+    </div></div>
+  </div>
+  <div class="col-md-3">
+    <div class="card text-center h-100"><div class="card-body">
+      <h6 class="text-light">% Cortesía/CoinIn</h6>
+      <h3 class="text-warning">{{ "%.3f"|format(pct_cortesias_coin_in) }}%</h3>
+    </div></div>
+  </div>
+  <div class="col-md-3">
+    <div class="card text-center h-100"><div class="card-body">
+      <h6 class="text-light">Días Totales</h6>
+      <h3 class="text-danger">{{ dias_totales }}</h3>
+    </div></div>
+  </div>
+</div>
+
+<!-- Gráfico -->
+<div class="card mb-4">
+  <div class="card-body">
+    <h5 class="card-title">{{ chart_titulo }}</h5>
+    <div style="max-width: 400px; margin: 0 auto;">
+      <canvas id="chartInv"></canvas>
+    </div>
+  </div>
+</div>
+
+<!-- Tabla -->
+<div class="card">
+  <div class="card-body">
+    <h5 class="card-title">Detalle por Jugador</h5>
+    <div class="table-responsive">
+      <table class="table table-dark table-striped table-hover table-sm">
+        <thead>
+          <tr>
+            <th>Nombre</th><th>Nivel</th><th>Días</th><th>%Asist.</th>
+            <th>Coin-In</th><th>Cortesías</th><th>Monto Cortesías</th>
+            <th>Invitación Mens.</th><th>Saldo</th>
+            <th>Premios</th><th>Monto Premios</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in resultados %}
+          <tr class="{{ 'table-danger' if r.saldo < 0 else '' }}">
+            <td>{{ r.nombre }}</td>
+            <td><span class="badge bg-info">{{ r.nivel }}</span></td>
+            <td>{{ r.dias_asistidos }}</td>
+            <td>{{ r.pct_asistencia }}%</td>
+            <td>${{ "{:,.0f}".format(r.coin_in_mensual or 0) }}</td>
+            <td>{{ r.total_cortesias }}</td>
+            <td>${{ "{:,.0f}".format(r.monto_micros or 0) }}</td>
+            <td>${{ "{:,.0f}".format(r.invitacion_mensual or 0) }}</td>
+            <td class="{{ 'text-danger fw-bold' if r.saldo < 0 else 'text-success' }}">${{ "{:,.0f}".format(r.saldo) }}</td>
+            <td>{{ r.cant_premios }}</td>
+            <td>${{ "{:,.0f}".format(r.monto_premios or 0) }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+new Chart(document.getElementById('chartInv').getContext('2d'), {
+  type: 'pie',
+  data: {
+    labels: {{ chart_labels|tojson }},
+    datasets: [{
+      data: {{ chart_cantidades|tojson }},
+      backgroundColor: ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#06b6d4','#84cc16']
+    }]
+  },
+  options: { responsive: true, plugins: { legend: { position: 'right', labels: { color: '#e2e8f0' } } } }
+});
+</script>
+{% endblock %}
