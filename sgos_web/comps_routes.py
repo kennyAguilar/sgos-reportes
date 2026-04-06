@@ -791,6 +791,15 @@ def control_invitaciones():
     total_coin_in_periodo = (kpi_coin_srw.get('total') or 0) + (kpi_coin_mesas.get('total') or 0)
     pct_cortesias_coin_in = round(total_cortesias_periodo * 100.0 / total_coin_in_periodo, 3) if total_coin_in_periodo > 0 else 0
 
+    # Coin-In solo de jugadores CON cortesías
+    cw_cc, cp_cc = build_date_filter('fecha_jornada', anio, mes)
+    subq_cort = f"SELECT DISTINCT cliente_id FROM cortesias {cw_cc}"
+    sw_cc, sp_cc = build_date_filter('gaming_date', anio, mes)
+    coin_srw_cc = _exec_one(f"SELECT COALESCE(SUM(coin_in), 0) as total FROM srw_jugadores {sw_cc} {'AND' if sw_cc else 'WHERE'} player_id IN ({subq_cort})", {**sp_cc, **cp_cc})
+    mw_cc, mp_cc = build_date_filter('fecha_operacion', anio, mes)
+    coin_mesas_cc = _exec_one(f"SELECT COALESCE(SUM(coin_in_puntos), 0) as total FROM mesas_puntos {mw_cc} {'AND' if mw_cc else 'WHERE'} cliente_id IN ({subq_cort})", {**mp_cc, **cp_cc})
+    coin_in_con_cortesias = (coin_srw_cc.get('total') or 0) + (coin_mesas_cc.get('total') or 0)
+
     return render_template('comps/control_invitaciones.html',
                            resultados=resultados,
                            dias_totales=dias_totales,
@@ -802,6 +811,7 @@ def control_invitaciones():
                            total_cortesias_periodo=total_cortesias_periodo,
                            total_coin_in_periodo=total_coin_in_periodo,
                            pct_cortesias_coin_in=pct_cortesias_coin_in,
+                           coin_in_con_cortesias=coin_in_con_cortesias,
                            anios=anios, meses_disp=meses_disp,
                            areas=areas, jefes_disp=jefes_disp,
                            anio_actual=anio, mes_actual=mes,
@@ -926,6 +936,13 @@ def control_invitaciones_mda():
     total_coin_in_periodo = kpi_coin.get('total') or 0
     pct_cortesias_coin_in = round(total_cortesias_periodo * 100.0 / total_coin_in_periodo, 3) if total_coin_in_periodo > 0 else 0
 
+    # Coin-In solo de jugadores CON cortesías (MDA)
+    cw_cc, cp_cc = build_date_filter('fecha_jornada', anio, mes)
+    subq_cort_mda = f"SELECT DISTINCT cliente_id FROM cortesias {cw_cc}"
+    sw_cc, sp_cc = build_date_filter('gaming_date', anio, mes)
+    coin_srw_cc = _exec_one(f"SELECT COALESCE(SUM(coin_in), 0) as total FROM srw_jugadores {sw_cc} {'AND' if sw_cc else 'WHERE'} player_id IN ({subq_cort_mda})", {**sp_cc, **cp_cc})
+    coin_in_con_cortesias = coin_srw_cc.get('total') or 0
+
     return render_template('comps/control_invitaciones_mda.html',
                            resultados=all_resultados, dias_totales=dias_totales,
                            pct_primario=pct_primario, pct_categoria=pct_categoria,
@@ -935,6 +952,7 @@ def control_invitaciones_mda():
                            total_cortesias_periodo=total_cortesias_periodo,
                            total_coin_in_periodo=total_coin_in_periodo,
                            pct_cortesias_coin_in=pct_cortesias_coin_in,
+                           coin_in_con_cortesias=coin_in_con_cortesias,
                            anios=anios, meses_disp=meses_disp,
                            jefes_disp=jefes_disp,
                            anio_actual=anio, mes_actual=mes, jefe_actual=jefe)
@@ -1061,6 +1079,13 @@ def control_invitaciones_mdj():
     total_coin_in_periodo = kpi_coin.get('total') or 0
     pct_cortesias_coin_in = round(total_cortesias_periodo * 100.0 / total_coin_in_periodo, 3) if total_coin_in_periodo > 0 else 0
 
+    # Coin-In solo de jugadores CON cortesías (MDJ)
+    cw_cc, cp_cc = build_date_filter('fecha_jornada', anio, mes)
+    subq_cort_mdj = f"SELECT DISTINCT cliente_id FROM cortesias {cw_cc}"
+    mw_cc, mp_cc = build_date_filter('fecha_operacion', anio, mes)
+    coin_mesas_cc = _exec_one(f"SELECT COALESCE(SUM(coin_in_puntos), 0) as total FROM mesas_puntos {mw_cc} {'AND' if mw_cc else 'WHERE'} cliente_id IN ({subq_cort_mdj})", {**mp_cc, **cp_cc})
+    coin_in_con_cortesias = coin_mesas_cc.get('total') or 0
+
     return render_template('comps/control_invitaciones_mdj.html',
                            resultados=all_resultados_mdj, dias_totales=dias_totales,
                            pct_primario=pct_primario, pct_categoria=pct_categoria,
@@ -1070,6 +1095,7 @@ def control_invitaciones_mdj():
                            total_cortesias_periodo=total_cortesias_periodo,
                            total_coin_in_periodo=total_coin_in_periodo,
                            pct_cortesias_coin_in=pct_cortesias_coin_in,
+                           coin_in_con_cortesias=coin_in_con_cortesias,
                            anios=anios, meses_disp=meses_disp,
                            jefes_disp=jefes_disp,
                            anio_actual=anio, mes_actual=mes, jefe_actual=jefe)
