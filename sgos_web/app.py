@@ -280,6 +280,66 @@ def home():
     return render_template("home.html")
 
 
+# ─────────────────────────── Gestión de Usuarios ───────────────────────────
+
+@app.route("/usuarios")
+@login_required
+def usuarios():
+    users = User.query.order_by(User.username).all()
+    return render_template("usuarios.html", users=users)
+
+
+@app.route("/usuarios/crear", methods=["POST"])
+@login_required
+def crear_usuario():
+    username = request.form.get("username", "").strip()
+    password = request.form.get("password", "").strip()
+    if not username or not password:
+        flash("Usuario y contraseña son obligatorios.")
+        return redirect(url_for("usuarios"))
+    if User.query.filter_by(username=username).first():
+        flash(f"El usuario '{username}' ya existe.")
+        return redirect(url_for("usuarios"))
+    user = User(username=username)
+    user.set_password(password)
+    db.session.add(user)
+    db.session.commit()
+    flash(f"Usuario '{username}' creado exitosamente.")
+    return redirect(url_for("usuarios"))
+
+
+@app.route("/usuarios/eliminar/<int:user_id>", methods=["POST"])
+@login_required
+def eliminar_usuario(user_id):
+    user = db.session.get(User, user_id)
+    if not user:
+        flash("Usuario no encontrado.")
+    elif user.id == current_user.id:
+        flash("No puedes eliminarte a ti mismo.")
+    else:
+        flash(f"Usuario '{user.username}' eliminado.")
+        db.session.delete(user)
+        db.session.commit()
+    return redirect(url_for("usuarios"))
+
+
+@app.route("/usuarios/cambiar-password/<int:user_id>", methods=["POST"])
+@login_required
+def cambiar_password(user_id):
+    user = db.session.get(User, user_id)
+    if not user:
+        flash("Usuario no encontrado.")
+        return redirect(url_for("usuarios"))
+    new_password = request.form.get("password", "").strip()
+    if not new_password:
+        flash("La contraseña no puede estar vacía.")
+        return redirect(url_for("usuarios"))
+    user.set_password(new_password)
+    db.session.commit()
+    flash(f"Contraseña de '{user.username}' actualizada.")
+    return redirect(url_for("usuarios"))
+
+
 @app.route("/sgos", methods=["GET", "POST"])
 @login_required
 def index():
