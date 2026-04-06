@@ -19,7 +19,7 @@ def _formatear_periodo(periodo_str: str) -> str:
         anio, mes = periodo_str.split("-")
         nombre_mes = MESES_ES.get(int(mes), mes)
         return f"{nombre_mes} {anio}"
-    except:
+    except Exception:
         return periodo_str
 
 def _autosize_sheet(ws, df, max_width=None):

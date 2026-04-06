@@ -20,37 +20,37 @@
       <div class="collapse navbar-collapse" id="navbarNav">
         <ul class="navbar-nav me-auto">
           <li class="nav-item">
-            <a class="nav-link" href="{{ url_for('comps.comps_index') }}">
+            <a class="nav-link {{ 'active' if request.endpoint == 'comps.comps_index' }}" href="{{ url_for('comps.comps_index') }}">
               <i class="bi bi-upload"></i> Carga de Datos
             </a>
           </li>
           <li class="nav-item dropdown">
-            <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+            <a class="nav-link dropdown-toggle {{ 'active' if request.endpoint in ('comps.analisis_cortesias','comps.analisis_premios','comps.analisis_resumen') }}" href="#" role="button" data-bs-toggle="dropdown">
               <i class="bi bi-bar-chart"></i> Análisis
             </a>
             <ul class="dropdown-menu">
-              <li><a class="dropdown-item" href="{{ url_for('comps.analisis_cortesias') }}"><i class="bi bi-gift"></i> Cortesías</a></li>
-              <li><a class="dropdown-item" href="{{ url_for('comps.analisis_premios') }}"><i class="bi bi-trophy"></i> Premios</a></li>
-              <li><a class="dropdown-item" href="{{ url_for('comps.analisis_resumen') }}"><i class="bi bi-clipboard-data"></i> Resumen General</a></li>
+              <li><a class="dropdown-item {{ 'active' if request.endpoint == 'comps.analisis_cortesias' }}" href="{{ url_for('comps.analisis_cortesias') }}"><i class="bi bi-gift"></i> Cortesías</a></li>
+              <li><a class="dropdown-item {{ 'active' if request.endpoint == 'comps.analisis_premios' }}" href="{{ url_for('comps.analisis_premios') }}"><i class="bi bi-trophy"></i> Premios</a></li>
+              <li><a class="dropdown-item {{ 'active' if request.endpoint == 'comps.analisis_resumen' }}" href="{{ url_for('comps.analisis_resumen') }}"><i class="bi bi-clipboard-data"></i> Resumen General</a></li>
             </ul>
           </li>
           <li class="nav-item dropdown">
-            <a class="nav-link dropdown-toggle" href="#" role="button" data-bs-toggle="dropdown">
+            <a class="nav-link dropdown-toggle {{ 'active' if request.endpoint in ('comps.control_invitaciones','comps.control_invitaciones_mda','comps.control_invitaciones_mdj') }}" href="#" role="button" data-bs-toggle="dropdown">
               <i class="bi bi-shield-check"></i> Control
             </a>
             <ul class="dropdown-menu">
-              <li><a class="dropdown-item" href="{{ url_for('comps.control_invitaciones') }}"><i class="bi bi-people"></i> Invitaciones General</a></li>
-              <li><a class="dropdown-item" href="{{ url_for('comps.control_invitaciones_mda') }}"><i class="bi bi-dice-5"></i> Invitaciones MDA</a></li>
-              <li><a class="dropdown-item" href="{{ url_for('comps.control_invitaciones_mdj') }}"><i class="bi bi-suit-spade"></i> Invitaciones MDJ</a></li>
+              <li><a class="dropdown-item {{ 'active' if request.endpoint == 'comps.control_invitaciones' }}" href="{{ url_for('comps.control_invitaciones') }}"><i class="bi bi-people"></i> Invitaciones General</a></li>
+              <li><a class="dropdown-item {{ 'active' if request.endpoint == 'comps.control_invitaciones_mda' }}" href="{{ url_for('comps.control_invitaciones_mda') }}"><i class="bi bi-dice-5"></i> Invitaciones MDA</a></li>
+              <li><a class="dropdown-item {{ 'active' if request.endpoint == 'comps.control_invitaciones_mdj' }}" href="{{ url_for('comps.control_invitaciones_mdj') }}"><i class="bi bi-suit-spade"></i> Invitaciones MDJ</a></li>
             </ul>
           </li>
           <li class="nav-item">
-            <a class="nav-link" href="{{ url_for('comps.auditoria_coinin_cero') }}">
+            <a class="nav-link {{ 'active' if request.endpoint == 'comps.auditoria_coinin_cero' }}" href="{{ url_for('comps.auditoria_coinin_cero') }}">
               <i class="bi bi-exclamation-triangle"></i> Coin-In Cero
             </a>
           </li>
           <li class="nav-item">
-            <a class="nav-link" href="{{ url_for('comps.exportar_reportes') }}">
+            <a class="nav-link {{ 'active' if request.endpoint == 'comps.exportar_reportes' }}" href="{{ url_for('comps.exportar_reportes') }}">
               <i class="bi bi-download"></i> Exportar
             </a>
           </li>

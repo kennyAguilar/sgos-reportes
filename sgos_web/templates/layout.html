@@ -24,27 +24,27 @@
       <div class="collapse navbar-collapse" id="navbarNav">
         <ul class="navbar-nav me-auto">
           <li class="nav-item">
-            <a class="nav-link" href="{{ url_for('index') }}">
+            <a class="nav-link {{ 'active' if request.endpoint == 'index' }}" href="{{ url_for('index') }}">
               <i class="bi bi-upload"></i> Cargar Archivo
             </a>
           </li>
           <li class="nav-item">
-            <a class="nav-link" href="{{ url_for('dashboard_db') }}">
+            <a class="nav-link {{ 'active' if request.endpoint == 'dashboard_db' }}" href="{{ url_for('dashboard_db') }}">
               <i class="bi bi-database"></i> Histórico Getnet
             </a>
           </li>
           <li class="nav-item">
-            <a class="nav-link" href="{{ url_for('graphs') }}">
+            <a class="nav-link {{ 'active' if request.endpoint == 'graphs' }}" href="{{ url_for('graphs') }}">
               <i class="bi bi-pie-chart"></i> Dashboard de Reportes
             </a>
           </li>
           <li class="nav-item">
-            <a class="nav-link" href="{{ url_for('dashboard_premios') }}">
+            <a class="nav-link {{ 'active' if request.endpoint == 'dashboard_premios' }}" href="{{ url_for('dashboard_premios') }}">
               <i class="bi bi-clock-history"></i> Históricos de Premios
             </a>
           </li>
           <li class="nav-item">
-            <a class="nav-link" href="{{ url_for('graphs_premios') }}">
+            <a class="nav-link {{ 'active' if request.endpoint == 'graphs_premios' }}" href="{{ url_for('graphs_premios') }}">
               <i class="bi bi-pie-chart-fill"></i> Dashboard de Premios
             </a>
           </li>
@@ -70,10 +70,10 @@
   {% endblock %}
 
   <div class="container py-4">
-    {% with messages = get_flashed_messages() %}
+    {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
-        {% for message in messages %}
-          <div class="alert alert-info alert-dismissible fade show" role="alert">
+        {% for category, message in messages %}
+          <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
             {{ message }}
             <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
           </div>

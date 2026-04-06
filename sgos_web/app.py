@@ -17,7 +17,7 @@ except ImportError:
     from engine import procesar_sgos, exportar_excel_bytes, obtener_asistentes, guardar_datos_db, generar_reportes
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("FLASK_SECRET_KEY", "sgos-secret")
+app.secret_key = os.environ.get("FLASK_SECRET_KEY") or os.urandom(32).hex()
 
 # Configuración de Login
 login_manager = LoginManager()
@@ -171,10 +171,11 @@ with app.app_context():
     # Crear usuario admin por defecto si no existe
     if not User.query.filter_by(username="admin").first():
         admin = User(username="admin")
-        admin.set_password("admin123")  # Contraseña por defecto
+        default_pw = os.environ.get("ADMIN_DEFAULT_PASSWORD", "admin123")
+        admin.set_password(default_pw)
         db.session.add(admin)
         db.session.commit()
-        print("Usuario 'admin' creado con contraseña 'admin123'")
+        print("Usuario 'admin' creado. Cambia la contraseña desde Gestión de Usuarios.")
 
 UPLOAD_FOLDER = "uploads"
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
@@ -262,7 +263,7 @@ def login():
             login_user(user)
             return redirect(url_for("home"))
         else:
-            flash("Usuario o contraseña incorrectos.")
+            flash("Usuario o contraseña incorrectos.", "danger")
             
     return render_template("login.html")
 
@@ -295,16 +296,16 @@ def crear_usuario():
     username = request.form.get("username", "").strip()
     password = request.form.get("password", "").strip()
     if not username or not password:
-        flash("Usuario y contraseña son obligatorios.")
+        flash("Usuario y contraseña son obligatorios.", "warning")
         return redirect(url_for("usuarios"))
     if User.query.filter_by(username=username).first():
-        flash(f"El usuario '{username}' ya existe.")
+        flash(f"El usuario '{username}' ya existe.", "warning")
         return redirect(url_for("usuarios"))
     user = User(username=username)
     user.set_password(password)
     db.session.add(user)
     db.session.commit()
-    flash(f"Usuario '{username}' creado exitosamente.")
+    flash(f"Usuario '{username}' creado exitosamente.", "success")
     return redirect(url_for("usuarios"))
 
 
@@ -313,11 +314,11 @@ def crear_usuario():
 def eliminar_usuario(user_id):
     user = db.session.get(User, user_id)
     if not user:
-        flash("Usuario no encontrado.")
+        flash("Usuario no encontrado.", "danger")
     elif user.id == current_user.id:
-        flash("No puedes eliminarte a ti mismo.")
+        flash("No puedes eliminarte a ti mismo.", "warning")
     else:
-        flash(f"Usuario '{user.username}' eliminado.")
+        flash(f"Usuario '{user.username}' eliminado.", "success")
         db.session.delete(user)
         db.session.commit()
     return redirect(url_for("usuarios"))
@@ -328,15 +329,15 @@ def eliminar_usuario(user_id):
 def cambiar_password(user_id):
     user = db.session.get(User, user_id)
     if not user:
-        flash("Usuario no encontrado.")
+        flash("Usuario no encontrado.", "danger")
         return redirect(url_for("usuarios"))
     new_password = request.form.get("password", "").strip()
     if not new_password:
-        flash("La contraseña no puede estar vacía.")
+        flash("La contraseña no puede estar vacía.", "warning")
         return redirect(url_for("usuarios"))
     user.set_password(new_password)
     db.session.commit()
-    flash(f"Contraseña de '{user.username}' actualizada.")
+    flash(f"Contraseña de '{user.username}' actualizada.", "success")
     return redirect(url_for("usuarios"))
 
 
@@ -346,11 +347,11 @@ def index():
     if request.method == "POST":
         f = request.files.get("file")
         if not f or f.filename == "":
-            flash("No se subió ningún archivo.")
+            flash("No se subió ningún archivo.", "warning")
             return redirect(url_for("index"))
 
         if not allowed_file(f.filename):
-            flash("Formato no permitido. Sube un .xlsx o .xls")
+            flash("Formato no permitido. Sube un .xlsx o .xls", "warning")
             return redirect(url_for("index"))
 
         filename = secure_filename(f.filename)
@@ -362,9 +363,9 @@ def index():
         # --- NUEVO: Guardar en Base de Datos ---
         try:
             total_guardados, tipo_archivo = guardar_datos_db(path, db, Operacion, Premio)
-            flash(f"¡Éxito! Se guardaron {total_guardados} registros de tipo {tipo_archivo} en la base de datos.")
+            flash(f"¡Éxito! Se guardaron {total_guardados} registros de tipo {tipo_archivo} en la base de datos.", "success")
         except Exception as e:
-            flash(f"Error al guardar en base de datos: {str(e)}")
+            flash(f"Error al guardar en base de datos: {str(e)}", "danger")
 
         opciones = request.form.getlist("opciones")  # lo que marcó en index
         session[f"tablas_{saved_name}"] = opciones
@@ -527,7 +528,7 @@ def dashboard_db():
     if not df.empty:
         asistentes_disponibles = sorted(df["Attendant"].dropna().unique().tolist())
     else:
-        flash("No hay datos para el periodo seleccionado.")
+        flash("No hay datos para el periodo seleccionado.", "info")
 
     asistentes_sel = session.get("asistentes_sel_db", [])
     # Si no hay selección guardada, o la lista de disponibles cambió y la selección ya no es válida...
@@ -576,7 +577,7 @@ def dashboard_premios():
     if not df.empty:
         asistentes_disponibles = sorted(df["Attendant"].dropna().unique().tolist())
     else:
-        flash("No hay datos de Premios para el periodo seleccionado.")
+        flash("No hay datos de Premios para el periodo seleccionado.", "info")
 
     asistentes_sel = session.get("asistentes_sel_premios", [])
     asistentes_seleccionados = asistentes_sel or asistentes_disponibles
@@ -767,4 +768,4 @@ app.register_blueprint(comps_bp)
 
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(debug=os.environ.get("FLASK_ENV") == "development")
