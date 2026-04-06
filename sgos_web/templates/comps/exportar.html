@@ -26,23 +26,51 @@
       </div>
 
       <h5 class="mb-3">Secciones a incluir:</h5>
-      <div class="row g-3 mb-4">
+      <div class="form-check mb-2">
+        <input class="form-check-input" type="checkbox" id="chk_all" checked>
+        <label class="form-check-label fw-bold" for="chk_all">Seleccionar todas</label>
+      </div>
+      <div class="row g-3 mb-4" id="secciones-list">
         <div class="col-md-4">
           <div class="form-check">
-            <input class="form-check-input" type="checkbox" name="secciones" value="cortesias" id="chk_cort" checked>
-            <label class="form-check-label" for="chk_cort"><i class="bi bi-gift"></i> Cortesías</label>
+            <input class="form-check-input seccion-chk" type="checkbox" name="secciones" value="cortesias" id="chk_cort" checked>
+            <label class="form-check-label" for="chk_cort"><i class="bi bi-gift"></i> Análisis Cortesías</label>
           </div>
         </div>
         <div class="col-md-4">
           <div class="form-check">
-            <input class="form-check-input" type="checkbox" name="secciones" value="premios" id="chk_prem" checked>
-            <label class="form-check-label" for="chk_prem"><i class="bi bi-trophy"></i> Premios</label>
+            <input class="form-check-input seccion-chk" type="checkbox" name="secciones" value="premios" id="chk_prem" checked>
+            <label class="form-check-label" for="chk_prem"><i class="bi bi-trophy"></i> Análisis Premios</label>
           </div>
         </div>
         <div class="col-md-4">
           <div class="form-check">
-            <input class="form-check-input" type="checkbox" name="secciones" value="resumen" id="chk_res" checked>
+            <input class="form-check-input seccion-chk" type="checkbox" name="secciones" value="resumen" id="chk_res" checked>
             <label class="form-check-label" for="chk_res"><i class="bi bi-clipboard-data"></i> Resumen General</label>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="form-check">
+            <input class="form-check-input seccion-chk" type="checkbox" name="secciones" value="control_general" id="chk_ctrl" checked>
+            <label class="form-check-label" for="chk_ctrl"><i class="bi bi-people"></i> Control Invitaciones</label>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="form-check">
+            <input class="form-check-input seccion-chk" type="checkbox" name="secciones" value="control_mda" id="chk_mda" checked>
+            <label class="form-check-label" for="chk_mda"><i class="bi bi-joystick"></i> Control MDA</label>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="form-check">
+            <input class="form-check-input seccion-chk" type="checkbox" name="secciones" value="control_mdj" id="chk_mdj" checked>
+            <label class="form-check-label" for="chk_mdj"><i class="bi bi-suit-spade"></i> Control MDJ</label>
+          </div>
+        </div>
+        <div class="col-md-4">
+          <div class="form-check">
+            <input class="form-check-input seccion-chk" type="checkbox" name="secciones" value="coinin_cero" id="chk_ci0" checked>
+            <label class="form-check-label" for="chk_ci0"><i class="bi bi-exclamation-triangle"></i> Auditoría Coin-In Cero</label>
           </div>
         </div>
       </div>
@@ -53,4 +81,15 @@
     </form>
   </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const chkAll = document.getElementById('chk_all');
+  const chks = document.querySelectorAll('.seccion-chk');
+  chkAll.addEventListener('change', () => chks.forEach(c => c.checked = chkAll.checked));
+  chks.forEach(c => c.addEventListener('change', () => {
+    chkAll.checked = [...chks].every(c => c.checked);
+  }));
+</script>
 {% endblock %}
