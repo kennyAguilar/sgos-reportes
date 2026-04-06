@@ -1196,8 +1196,24 @@ def auditoria_coinin_cero():
     chart_labels = [r['etiqueta'] or 'Sin asignar' for r in chart_rows]
     chart_cantidades = [r['cantidad'] for r in chart_rows]
 
+    # Detalle de productos por cliente/fecha (para expandir filas)
+    productos_detalle = _exec(f"""
+        SELECT c.cliente_id, c.fecha_jornada,
+               c.descripcion_cat, c.descripcion_prod,
+               COUNT(*) as cantidad, SUM(c.micros) as monto
+        FROM cortesias c
+        {where_clause}
+        GROUP BY c.cliente_id, c.fecha_jornada, c.descripcion_cat, c.descripcion_prod
+        ORDER BY c.descripcion_cat, monto DESC
+    """, all_params)
+    prods_por_caso = {}
+    for r in productos_detalle:
+        key = f"{r['cliente_id']}|{r['fecha_jornada']}"
+        prods_por_caso.setdefault(key, []).append(r)
+
     return render_template('comps/auditoria_coinin_cero.html',
                            resultados=resultados,
+                           prods_por_caso=prods_por_caso,
                            chart_labels=chart_labels,
                            chart_cantidades=chart_cantidades,
                            chart_titulo=chart_titulo,

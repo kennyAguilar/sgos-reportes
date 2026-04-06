@@ -83,28 +83,41 @@
   <div class="card-body">
     <h5 class="card-title">Detalle de Cortesías con Coin-In = 0</h5>
     <div class="table-responsive">
-      <table class="table table-dark table-striped table-hover table-sm sortable">
+      <table class="table table-dark table-striped table-hover table-sm sortable" style="font-size:.85rem">
         <thead>
           <tr>
-            <th>Fecha</th><th>Nombre</th><th>Coin-In</th>
-            <th>Cortesías</th><th>Monto Cort.</th>
-            <th>Premios</th><th>Monto Premios</th>
-            <th>Jefe</th><th>Sección</th>
+            <th class="text-nowrap">Fecha</th><th>Nombre</th><th class="text-nowrap">Coin-In</th>
+            <th class="text-nowrap">Cort.</th><th class="text-nowrap">Monto Cort.</th>
+            <th class="text-nowrap">Prem.</th><th class="text-nowrap">Monto Prem.</th>
+            <th>Jefe</th><th class="text-nowrap">Sección</th>
           </tr>
         </thead>
         <tbody>
           {% for r in resultados %}
-          <tr>
-            <td>{{ r.jornada }}</td>
-            <td>{{ r.nombre_cliente }}</td>
-            <td class="text-danger fw-bold">${{ "{:,.0f}".format(r.coin_in or 0) }}</td>
+          {% set caso_key = r.cliente_id ~ '|' ~ r.jornada %}
+          {% set caso_idx = loop.index %}
+          <tr class="caso-row" data-caso="{{ caso_idx }}" style="cursor:pointer" title="Click para ver productos">
+            <td class="text-nowrap"><i class="bi bi-chevron-right me-1 chevron-icon"></i>{{ r.jornada }}</td>
+            <td style="max-width:200px" class="text-truncate">{{ r.nombre_cliente }}</td>
+            <td class="text-danger fw-bold text-nowrap">${{ "{:,.0f}".format(r.coin_in or 0) }}</td>
             <td>{{ r.cant_cortesias }}</td>
-            <td>${{ "{:,.0f}".format(r.monto_cortesias or 0) }}</td>
+            <td class="text-nowrap">${{ "{:,.0f}".format(r.monto_cortesias or 0) }}</td>
             <td>{{ r.cant_premios }}</td>
-            <td>${{ "{:,.0f}".format(r.monto_premios or 0) }}</td>
-            <td>{{ r.jefe_nombre }}</td>
-            <td>{{ r.jefe_area }}</td>
+            <td class="text-nowrap">${{ "{:,.0f}".format(r.monto_premios or 0) }}</td>
+            <td style="max-width:160px" class="text-truncate">{{ r.jefe_nombre }}</td>
+            <td class="text-nowrap">{{ r.jefe_area }}</td>
           </tr>
+          {% for prod in prods_por_caso.get(caso_key, []) %}
+          <tr class="sub-{{ caso_idx }}" style="display:none; background:rgba(255,255,255,0.03)">
+            <td></td>
+            <td colspan="2" class="ps-4 text-info small">
+              <i class="bi bi-dot"></i> {{ prod.descripcion_cat }} — {{ prod.descripcion_prod }}
+            </td>
+            <td class="small">{{ prod.cantidad }}</td>
+            <td class="small">${{ "{:,.0f}".format(prod.monto or 0) }}</td>
+            <td colspan="4"></td>
+          </tr>
+          {% endfor %}
           {% endfor %}
         </tbody>
       </table>
@@ -129,4 +142,16 @@ new Chart(document.getElementById('chartZero').getContext('2d'), {
 });
 </script>
 {% endif %}
+<script>
+document.querySelectorAll('.caso-row').forEach(function(row) {
+  row.addEventListener('click', function() {
+    var id = this.dataset.caso;
+    var subs = document.querySelectorAll('.sub-' + id);
+    var chevron = this.querySelector('.chevron-icon');
+    var open = subs.length > 0 && subs[0].style.display !== 'none';
+    subs.forEach(function(s) { s.style.display = open ? 'none' : ''; });
+    if (chevron) chevron.className = 'bi me-1 chevron-icon ' + (open ? 'bi-chevron-right' : 'bi-chevron-down');
+  });
+});
+</script>
 {% endblock %}
