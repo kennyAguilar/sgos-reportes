@@ -19,7 +19,7 @@
         <label class="form-label">Mes</label>
         <select name="mes" class="form-select">
           <option value="">Todos</option>
-          {% for m in meses_disp %}<option value="{{ m }}" {{ 'selected' if m == mes_actual }}>{{ m }}</option>{% endfor %}
+          {% for m in meses_disp %}<option value="{{ m }}" {{ 'selected' if m == mes_actual }}>{{ MESES_NOMBRE.get(m, m) }}</option>{% endfor %}
         </select>
       </div>
       <div class="col-md-3">
@@ -83,7 +83,7 @@
   <div class="card-body">
     <h5 class="card-title">Por Tipo de Pago</h5>
     <div class="table-responsive">
-      <table class="table table-dark table-striped table-hover">
+      <table class="table table-dark table-striped table-hover sortable">
         <thead><tr><th>Tipo</th><th>Cantidad</th><th>Monto Total</th></tr></thead>
         <tbody>
           {% for row in por_tipo %}
@@ -104,7 +104,7 @@
   <div class="card-body">
     <h5 class="card-title">Resumen por Jugador</h5>
     <div class="table-responsive">
-      <table class="table table-dark table-striped table-hover table-sm">
+      <table class="table table-dark table-striped table-hover table-sm sortable">
         <thead>
           <tr>
             <th>Nombre</th><th>Nivel</th><th>Premios</th>

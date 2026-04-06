@@ -14,6 +14,12 @@ from werkzeug.utils import secure_filename
 
 comps_bp = Blueprint('comps', __name__, url_prefix='/comps')
 
+
+@comps_bp.app_context_processor
+def inject_meses_nombre():
+    return dict(MESES_NOMBRE=MESES_NOMBRE)
+
+
 UPLOAD_FOLDER = "uploads"
 ALLOWED_EXTENSIONS = {'.xls', '.xlsx'}
 
@@ -714,7 +720,35 @@ def control_invitaciones():
         ORDER BY coin_in_mensual DESC
     """, mesas_params)
 
-    jugadores = list(jugadores_srw) + list(jugadores_mesas)
+    # Jugadores que solo tienen cortesías (no aparecen en SRW ni mesas_puntos)
+    sw_excl2, sp_excl2 = build_date_filter('gaming_date', anio, mes)
+    mw_excl2, mp_excl2 = build_date_filter('fecha_operacion', anio, mes)
+    ids_ya = set(j['player_id'] for j in jugadores_srw) | set(j['player_id'] for j in jugadores_mesas)
+    cort_only_params = {**cparam, **jefe_p, **pparam}
+    jugadores_cort_only = _exec(f"""
+        SELECT
+            c.cliente_id as player_id,
+            MAX(c.nombre_cliente) as nombre,
+            '-' as nivel,
+            0 as coin_in_mensual,
+            0 as dias_asistidos,
+            COUNT(c.id) as total_cortesias,
+            SUM(c.micros) as monto_micros,
+            COALESCE(MAX(p.cant_premios), 0) as cant_premios,
+            COALESCE(MAX(p.monto_premios), 0) as monto_premios
+        FROM cortesias c
+        LEFT JOIN (
+            SELECT cliente_id, COUNT(*) as cant_premios, SUM(transferencia_final) as monto_premios
+            FROM premios_comps p {pw}
+            GROUP BY cliente_id
+        ) p ON c.cliente_id = p.cliente_id
+        {cw_inner}
+        GROUP BY c.cliente_id
+        ORDER BY monto_micros DESC
+    """, cort_only_params)
+    jugadores_cort_only = [j for j in jugadores_cort_only if j['player_id'] not in ids_ya]
+
+    jugadores = list(jugadores_srw) + list(jugadores_mesas) + list(jugadores_cort_only)
     resultados = _calc_invitaciones(jugadores, pct_primario, pct_categoria, dias_totales)
 
     # Gráfico de torta
@@ -840,6 +874,49 @@ def control_invitaciones_mda():
 
     resultados = _calc_invitaciones(jugadores_raw, pct_primario, pct_categoria, dias_totales)
 
+    # Jugadores solo-cortesías MDA (no en SRW)
+    ids_ya_mda = set(j['player_id'] for j in jugadores_raw)
+    cort_only_mda_params = {**cparam, **jefe_p, **pparam}
+    jugadores_cort_only_mda = _exec(f"""
+        SELECT
+            c.cliente_id as player_id,
+            MAX(c.nombre_cliente) as nombre,
+            '-' as nivel,
+            0 as coin_in_mensual,
+            0 as dias_asistidos,
+            COUNT(c.id) as total_cortesias,
+            SUM(c.micros) as monto_micros,
+            COALESCE(MAX(p.cant_premios), 0) as cant_premios,
+            COALESCE(MAX(p.monto_premios), 0) as monto_premios
+        FROM cortesias c
+        LEFT JOIN (
+            SELECT cliente_id, COUNT(*) as cant_premios, SUM(transferencia_final) as monto_premios
+            FROM premios_comps p {pw}
+            GROUP BY cliente_id
+        ) p ON c.cliente_id = p.cliente_id
+        {cw_inner}
+        GROUP BY c.cliente_id
+        ORDER BY monto_micros DESC
+    """, cort_only_mda_params)
+    jugadores_cort_only_mda = [j for j in jugadores_cort_only_mda if j['player_id'] not in ids_ya_mda]
+
+    all_resultados = list(resultados) + _calc_invitaciones(jugadores_cort_only_mda, pct_primario, pct_categoria, dias_totales)
+
+    # Gráfico de torta MDA
+    cw_chart, cp_chart = build_date_filter('c.fecha_jornada', anio, mes)
+    chart_params = dict(cp_chart)
+    extra_chart = " AND j.area = 'MDA'" if cw_chart else "WHERE j.area = 'MDA'"
+    chart_rows = _exec(f"""
+        SELECT j.nombre as etiqueta, COUNT(*) as cantidad
+        FROM cortesias c
+        LEFT JOIN jefaturas j ON c.usuario_id = j.usuario_id
+        {cw_chart}{extra_chart}
+        GROUP BY j.nombre ORDER BY cantidad DESC
+    """, chart_params)
+    chart_labels = [r['etiqueta'] or 'Sin asignar' for r in chart_rows]
+    chart_cantidades = [r['cantidad'] for r in chart_rows]
+    chart_titulo = "Cortesías por Jefe — MDA"
+
     # KPIs
     cw_kpi, cp_kpi = build_date_filter('fecha_jornada', anio, mes)
     kpi_cortesias = _exec_one(f"SELECT COALESCE(SUM(micros), 0) as total FROM cortesias {cw_kpi}", cp_kpi)
@@ -850,8 +927,11 @@ def control_invitaciones_mda():
     pct_cortesias_coin_in = round(total_cortesias_periodo * 100.0 / total_coin_in_periodo, 3) if total_coin_in_periodo > 0 else 0
 
     return render_template('comps/control_invitaciones_mda.html',
-                           resultados=resultados, dias_totales=dias_totales,
+                           resultados=all_resultados, dias_totales=dias_totales,
                            pct_primario=pct_primario, pct_categoria=pct_categoria,
+                           chart_labels=chart_labels,
+                           chart_cantidades=chart_cantidades,
+                           chart_titulo=chart_titulo,
                            total_cortesias_periodo=total_cortesias_periodo,
                            total_coin_in_periodo=total_coin_in_periodo,
                            pct_cortesias_coin_in=pct_cortesias_coin_in,
@@ -929,6 +1009,49 @@ def control_invitaciones_mdj():
 
     resultados = _calc_invitaciones(jugadores_raw, pct_primario, pct_categoria, dias_totales)
 
+    # Jugadores solo-cortesías MDJ (no en mesas_puntos)
+    ids_ya_mdj = set(j['player_id'] for j in jugadores_raw)
+    cort_only_mdj_params = {**cparam, **jefe_p, **pparam}
+    jugadores_cort_only_mdj = _exec(f"""
+        SELECT
+            c.cliente_id as player_id,
+            MAX(c.nombre_cliente) as nombre,
+            '-' as nivel,
+            0 as coin_in_mensual,
+            0 as dias_asistidos,
+            COUNT(c.id) as total_cortesias,
+            SUM(c.micros) as monto_micros,
+            COALESCE(MAX(p.cant_premios), 0) as cant_premios,
+            COALESCE(MAX(p.monto_premios), 0) as monto_premios
+        FROM cortesias c
+        LEFT JOIN (
+            SELECT cliente_id, COUNT(*) as cant_premios, SUM(transferencia_final) as monto_premios
+            FROM premios_comps p {pw}
+            GROUP BY cliente_id
+        ) p ON c.cliente_id = p.cliente_id
+        {cw_inner}
+        GROUP BY c.cliente_id
+        ORDER BY monto_micros DESC
+    """, cort_only_mdj_params)
+    jugadores_cort_only_mdj = [j for j in jugadores_cort_only_mdj if j['player_id'] not in ids_ya_mdj]
+
+    all_resultados_mdj = list(resultados) + _calc_invitaciones(jugadores_cort_only_mdj, pct_primario, pct_categoria, dias_totales)
+
+    # Gráfico de torta MDJ
+    cw_chart, cp_chart = build_date_filter('c.fecha_jornada', anio, mes)
+    chart_params = dict(cp_chart)
+    extra_chart = " AND j.area = 'MDJ'" if cw_chart else "WHERE j.area = 'MDJ'"
+    chart_rows = _exec(f"""
+        SELECT j.nombre as etiqueta, COUNT(*) as cantidad
+        FROM cortesias c
+        LEFT JOIN jefaturas j ON c.usuario_id = j.usuario_id
+        {cw_chart}{extra_chart}
+        GROUP BY j.nombre ORDER BY cantidad DESC
+    """, chart_params)
+    chart_labels = [r['etiqueta'] or 'Sin asignar' for r in chart_rows]
+    chart_cantidades = [r['cantidad'] for r in chart_rows]
+    chart_titulo = "Cortesías por Jefe — MDJ"
+
     # KPIs
     cw_kpi, cp_kpi = build_date_filter('fecha_jornada', anio, mes)
     kpi_cortesias = _exec_one(f"SELECT COALESCE(SUM(micros), 0) as total FROM cortesias {cw_kpi}", cp_kpi)
@@ -939,8 +1062,11 @@ def control_invitaciones_mdj():
     pct_cortesias_coin_in = round(total_cortesias_periodo * 100.0 / total_coin_in_periodo, 3) if total_coin_in_periodo > 0 else 0
 
     return render_template('comps/control_invitaciones_mdj.html',
-                           resultados=resultados, dias_totales=dias_totales,
+                           resultados=all_resultados_mdj, dias_totales=dias_totales,
                            pct_primario=pct_primario, pct_categoria=pct_categoria,
+                           chart_labels=chart_labels,
+                           chart_cantidades=chart_cantidades,
+                           chart_titulo=chart_titulo,
                            total_cortesias_periodo=total_cortesias_periodo,
                            total_coin_in_periodo=total_coin_in_periodo,
                            pct_cortesias_coin_in=pct_cortesias_coin_in,

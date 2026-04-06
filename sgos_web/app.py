@@ -243,7 +243,7 @@ def preparar_tablas(path: str, opciones: list[str], asistentes_sel: list[str]) -
 
 def tablas_a_html(tablas: dict) -> dict:
     return {
-        k: v.to_html(index=False, classes="table table-sm table-striped w-auto mx-auto")
+        k: v.to_html(index=False, classes="table table-sm table-striped w-auto mx-auto sortable")
         for k, v in tablas.items()
     }
 

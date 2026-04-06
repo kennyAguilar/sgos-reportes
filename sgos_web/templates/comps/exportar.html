@@ -19,7 +19,7 @@
           <label class="form-label">Mes</label>
           <select name="mes" class="form-select">
             <option value="">Todos</option>
-            {% for m in meses_disp %}<option value="{{ m }}">{{ m }}</option>{% endfor %}
+            {% for m in meses_disp %}<option value="{{ m }}">{{ MESES_NOMBRE.get(m, m) }}</option>{% endfor %}
           </select>
         </div>
       </div>

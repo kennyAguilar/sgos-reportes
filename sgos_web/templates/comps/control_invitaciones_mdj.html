@@ -19,7 +19,7 @@
         <label class="form-label">Mes</label>
         <select name="mes" class="form-select">
           <option value="">Todos</option>
-          {% for m in meses_disp %}<option value="{{ m }}" {{ 'selected' if m == mes_actual }}>{{ m }}</option>{% endfor %}
+          {% for m in meses_disp %}<option value="{{ m }}" {{ 'selected' if m == mes_actual }}>{{ MESES_NOMBRE.get(m, m) }}</option>{% endfor %}
         </select>
       </div>
       <div class="col-md-3">
@@ -59,12 +59,24 @@
   </div>
 </div>
 
+<!-- Gráfico -->
+{% if chart_labels %}
+<div class="card mb-4">
+  <div class="card-body">
+    <h5 class="card-title">{{ chart_titulo }}</h5>
+    <div style="max-width: 400px; margin: 0 auto;">
+      <canvas id="chartMdj"></canvas>
+    </div>
+  </div>
+</div>
+{% endif %}
+
 <!-- Tabla -->
 <div class="card">
   <div class="card-body">
     <h5 class="card-title">Detalle MDJ — Días totales: {{ dias_totales }}</h5>
     <div class="table-responsive">
-      <table class="table table-dark table-striped table-hover table-sm">
+      <table class="table table-dark table-striped table-hover table-sm sortable">
         <thead>
           <tr>
             <th>Nombre</th><th>Nivel</th><th>Días</th><th>%Asist.</th>
@@ -91,4 +103,22 @@
     </div>
   </div>
 </div>
+{% endblock %}
+
+{% block scripts %}
+{% if chart_labels %}
+<script>
+new Chart(document.getElementById('chartMdj').getContext('2d'), {
+  type: 'pie',
+  data: {
+    labels: {{ chart_labels|tojson }},
+    datasets: [{
+      data: {{ chart_cantidades|tojson }},
+      backgroundColor: ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#06b6d4','#84cc16']
+    }]
+  },
+  options: { responsive: true, plugins: { legend: { position: 'right', labels: { color: '#e2e8f0' } } } }
+});
+</script>
+{% endif %}
 {% endblock %}
