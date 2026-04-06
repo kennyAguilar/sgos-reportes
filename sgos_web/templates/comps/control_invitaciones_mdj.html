@@ -69,7 +69,7 @@
 <div class="card mb-4">
   <div class="card-body">
     <h5 class="card-title">{{ chart_titulo }}</h5>
-    <div style="max-width: 400px; margin: 0 auto;">
+    <div style="max-width: 700px; min-height: 350px; margin: 0 auto;">
       <canvas id="chartMdj"></canvas>
     </div>
   </div>
@@ -122,7 +122,16 @@ new Chart(document.getElementById('chartMdj').getContext('2d'), {
       backgroundColor: ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#06b6d4','#84cc16']
     }]
   },
-  options: { responsive: true, plugins: { legend: { position: 'right', labels: { color: '#e2e8f0' } } } }
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: 'right',
+        labels: { color: '#e2e8f0', boxWidth: 14, padding: 10, font: { size: 12 } }
+      }
+    }
+  }
 });
 </script>
 {% endif %}

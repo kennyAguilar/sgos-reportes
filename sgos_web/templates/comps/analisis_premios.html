@@ -64,7 +64,7 @@
     <div class="card h-100">
       <div class="card-body">
         <h5 class="card-title">Premios por Tipo de Pago</h5>
-        <canvas id="chartTipo" height="250"></canvas>
+        <div style="min-height: 300px;"><canvas id="chartTipo"></canvas></div>
       </div>
     </div>
   </div>
@@ -141,7 +141,16 @@ new Chart(document.getElementById('chartTipo').getContext('2d'), {
       backgroundColor: ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#06b6d4']
     }]
   },
-  options: { responsive: true, plugins: { legend: { position: 'right', labels: { color: '#e2e8f0' } } } }
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: 'right',
+        labels: { color: '#e2e8f0', boxWidth: 14, padding: 10, font: { size: 12 } }
+      }
+    }
+  }
 });
 // Premios por día
 new Chart(document.getElementById('chartDia').getContext('2d'), {
