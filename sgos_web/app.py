@@ -249,6 +249,11 @@ def tablas_a_html(tablas: dict) -> dict:
     }
 
 
+@app.route("/sw.js")
+def service_worker():
+    return app.send_static_file("js/sw.js"), 200, {"Content-Type": "application/javascript", "Service-Worker-Allowed": "/"}
+
+
 @app.route("/login", methods=["GET", "POST"])
 def login():
     if current_user.is_authenticated:
