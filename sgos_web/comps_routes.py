@@ -1185,7 +1185,7 @@ def auditoria_coinin_cero():
         ) p ON c.cliente_id = p.cliente_id AND c.fecha_jornada = p.fecha_jornada
         LEFT JOIN jefaturas j ON c.usuario_id = j.usuario_id
         {where_clause}
-        GROUP BY c.fecha_jornada, c.cliente_id
+        GROUP BY c.fecha_jornada, c.cliente_id, c.usuario_id
         ORDER BY c.fecha_jornada DESC, monto_cortesias DESC
     """, all_params)
 
@@ -1982,7 +1982,7 @@ def exportar_generar():
                 ) p ON c.cliente_id = p.cliente_id AND c.fecha_jornada = p.fecha_jornada
                 LEFT JOIN jefaturas j ON c.usuario_id = j.usuario_id
                 {where_clause}
-                GROUP BY c.fecha_jornada, c.cliente_id
+                GROUP BY c.fecha_jornada, c.cliente_id, c.usuario_id
                 ORDER BY c.fecha_jornada DESC, monto_cortesias DESC
             """, all_params)
             _write_sheet(writer, rows, 'Coin-In Cero',
