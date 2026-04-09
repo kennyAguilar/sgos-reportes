@@ -65,8 +65,8 @@
       <h3 class="text-warning">{{ "%.3f"|format(pct_cortesias_coin_in) }}%</h3>
       <small class="text-light opacity-50" style="font-size:.65rem">Cortesías / Coin-In × 100</small><br>
       {% if coin_in_con_cortesias > 0 %}
-      <span class="text-info" style="font-size:.85rem">{{ "%.4f"|format(total_cortesias_periodo / coin_in_con_cortesias * 0.065) }}</span><br>
-      <small class="text-light opacity-50" style="font-size:.65rem">Monto Cortesías / Coin-In (c/cortesías) × 0.065</small>
+      <span class="text-info" style="font-size:.85rem">{{ "%.4f"|format(total_cortesias_periodo / coin_in_con_cortesias * 0.065 * 100) }}%</span><br>
+      <small class="text-light opacity-50" style="font-size:.65rem">Monto Cortesías / Coin-In (c/cortesías) × 0.065 × 100</small>
       {% endif %}
     </div></div>
   </div>

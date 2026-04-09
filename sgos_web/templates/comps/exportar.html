@@ -8,6 +8,7 @@
 <div class="card">
   <div class="card-body">
     <form method="POST" action="{{ url_for('comps.exportar_generar') }}">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="row g-3 mb-4">
         <div class="col-md-4">
           <label class="form-label">Año</label>

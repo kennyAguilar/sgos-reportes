@@ -169,7 +169,9 @@ def cargar_datos():
 
     except Exception as e:
         db.session.rollback()
-        flash(f'Error al cargar datos: {str(e)}', 'error')
+        import logging
+        logging.getLogger(__name__).error(f'Error al cargar datos COMPS: {e}')
+        flash('Error al cargar datos. Contacta al administrador.', 'error')
 
     return redirect(url_for('comps.comps_index'))
 

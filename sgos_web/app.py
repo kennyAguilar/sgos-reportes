@@ -8,6 +8,9 @@ from sqlalchemy import select, func, distinct
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
+from flask_wtf.csrf import CSRFProtect
+from flask_limiter import Limiter
+from flask_limiter.util import get_remote_address
 
 load_dotenv()  # Carga las variables del archivo .env
 
@@ -18,6 +21,32 @@ except ImportError:
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY") or os.urandom(32).hex()
+
+# Cookies de sesión seguras
+app.config['SESSION_COOKIE_HTTPONLY'] = True
+app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
+if os.environ.get("FLASK_ENV") != "development":
+    app.config['SESSION_COOKIE_SECURE'] = True
+
+# Protección CSRF
+csrf = CSRFProtect(app)
+
+# Rate Limiting
+limiter = Limiter(get_remote_address, app=app, storage_uri="memory://")
+
+import re
+
+MIN_PASSWORD_LENGTH = 9
+
+def validar_password(password):
+    """Retorna mensaje de error o None si es válida."""
+    if len(password) < MIN_PASSWORD_LENGTH:
+        return f"La contraseña debe tener al menos {MIN_PASSWORD_LENGTH} caracteres."
+    if not re.search(r'[A-Z]', password):
+        return "La contraseña debe contener al menos una letra mayúscula."
+    if not re.search(r'[!@#$%^&*()_+\-=\[\]{}|;:\'",.<>?/`~]', password):
+        return "La contraseña debe contener al menos un carácter especial."
+    return None
 
 # Configuración de Login
 login_manager = LoginManager()
@@ -249,12 +278,25 @@ def tablas_a_html(tablas: dict) -> dict:
     }
 
 
+@app.after_request
+def set_security_headers(response):
+    response.headers['X-Content-Type-Options'] = 'nosniff'
+    response.headers['X-Frame-Options'] = 'SAMEORIGIN'
+    response.headers['X-XSS-Protection'] = '1; mode=block'
+    response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
+    response.headers['Permissions-Policy'] = 'geolocation=(), camera=(), microphone=()'
+    if os.environ.get("FLASK_ENV") != "development":
+        response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
+    return response
+
+
 @app.route("/sw.js")
 def service_worker():
     return app.send_static_file("js/sw.js"), 200, {"Content-Type": "application/javascript", "Service-Worker-Allowed": "/"}
 
 
 @app.route("/login", methods=["GET", "POST"])
+@limiter.limit("10 per minute")
 def login():
     if current_user.is_authenticated:
         return redirect(url_for("home"))
@@ -303,6 +345,10 @@ def crear_usuario():
     if not username or not password:
         flash("Usuario y contraseña son obligatorios.", "warning")
         return redirect(url_for("usuarios"))
+    error_pw = validar_password(password)
+    if error_pw:
+        flash(error_pw, "warning")
+        return redirect(url_for("usuarios"))
     if User.query.filter_by(username=username).first():
         flash(f"El usuario '{username}' ya existe.", "warning")
         return redirect(url_for("usuarios"))
@@ -340,6 +386,10 @@ def cambiar_password(user_id):
     if not new_password:
         flash("La contraseña no puede estar vacía.", "warning")
         return redirect(url_for("usuarios"))
+    error_pw = validar_password(new_password)
+    if error_pw:
+        flash(error_pw, "warning")
+        return redirect(url_for("usuarios"))
     user.set_password(new_password)
     db.session.commit()
     flash(f"Contraseña de '{user.username}' actualizada.", "success")
@@ -370,7 +420,8 @@ def index():
             total_guardados, tipo_archivo = guardar_datos_db(path, db, Operacion, Premio)
             flash(f"¡Éxito! Se guardaron {total_guardados} registros de tipo {tipo_archivo} en la base de datos.", "success")
         except Exception as e:
-            flash(f"Error al guardar en base de datos: {str(e)}", "danger")
+            app.logger.error(f"Error al guardar en base de datos: {e}")
+            flash("Error al guardar en base de datos. Contacta al administrador.", "danger")
 
         opciones = request.form.getlist("opciones")  # lo que marcó en index
         session[f"tablas_{saved_name}"] = opciones
@@ -418,7 +469,7 @@ def dashboard(file_id):
         )
     except Exception as e:
         app.logger.error(f"Error en dashboard: {e}")
-        flash(f"Error al procesar el archivo: {str(e)}", "error")
+        flash("Error al procesar el archivo. Contacta al administrador.", "error")
         return redirect(url_for("index"))
 
 
@@ -605,8 +656,8 @@ def dashboard_premios():
     )
 
 
-@login_required
 @app.route("/download/<file_id>", methods=["GET"])
+@login_required
 def download(file_id):
     if file_id == "db":
         selected_year = session.get("year_db", "all")

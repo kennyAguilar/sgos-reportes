@@ -55,6 +55,7 @@
   <div class="card-body">
     <h5 class="card-title"><i class="bi bi-cloud-upload"></i> Subir Archivos</h5>
     <form method="POST" action="{{ url_for('comps.cargar_datos') }}" enctype="multipart/form-data">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="row g-3">
         <div class="col-md-6">
           <label class="form-label"><i class="bi bi-people"></i> SRW Jugadores (.xlsx)</label>
