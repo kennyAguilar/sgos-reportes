@@ -169,6 +169,7 @@ class MesaPuntos(db.Model):
     fecha_operacion = db.Column(db.String(10))
     cliente_id = db.Column(db.String(50))
     cliente_nombre = db.Column(db.String(200))
+    categoria = db.Column(db.String(100))
     puntos = db.Column(db.Float, default=0)
     coin_in_puntos = db.Column(db.Float, default=0)
 

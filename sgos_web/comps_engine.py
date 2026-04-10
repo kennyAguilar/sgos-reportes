@@ -81,17 +81,19 @@ def cargar_premios_comps(filepath):
 
 def cargar_mesas_puntos(filepath):
     df = pd.read_excel(filepath, header=None, skiprows=2)
-    df = df.iloc[:, 1:]
-    df.columns = [
-        'fecha_operacion', 'sesion_id', 'mesa_id', 'juego',
-        'cliente_id', 'cliente_nombre',
-        'hora_inicio', 'hora_fin',
-        'tpo_jugado', 'ap_promedio', 'puntos'
-    ]
-    df = df[['fecha_operacion', 'cliente_id', 'cliente_nombre', 'puntos']]
+    headers = [str(h).strip().upper() for h in df.iloc[0]]
+    df.columns = headers
+    df = df.iloc[1:]  # quitar fila de encabezado
+
+    # Seleccionar columnas necesarias
+    df = df[['ID_CLIENTE', 'NOMBRE', 'CATEGORIA', 'FECHA_OPERACION', 'PUNTOS_OBTENIDOS']]
+    df.columns = ['cliente_id', 'cliente_nombre', 'categoria', 'fecha_operacion', 'puntos']
     df = df.dropna(subset=['cliente_id'])
-    df['cliente_id'] = df['cliente_id'].astype(str).str.strip()
-    df['fecha_operacion'] = pd.to_datetime(df['fecha_operacion'], errors='coerce').dt.strftime('%Y-%m-%d')
+    df['cliente_id'] = df['cliente_id'].astype(str).str.strip().str.lstrip("'")
+    df['cliente_nombre'] = df['cliente_nombre'].fillna('')
+    df['categoria'] = df['categoria'].fillna('Sin Categoria')
+    df['fecha_operacion'] = pd.to_datetime(df['fecha_operacion'], format='%d-%m-%Y', errors='coerce').dt.strftime('%Y-%m-%d')
+    df = df.dropna(subset=['fecha_operacion'])
     df['puntos'] = pd.to_numeric(df['puntos'], errors='coerce').fillna(0)
     df['coin_in_puntos'] = df['puntos'] * 1000
     return df

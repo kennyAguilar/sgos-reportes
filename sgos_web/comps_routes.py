@@ -698,7 +698,7 @@ def control_invitaciones():
         SELECT
             mp.cliente_id as player_id,
             MAX(mp.cliente_nombre) as nombre,
-            'MDJ' as nivel,
+            COALESCE(MAX(mp.categoria), 'Sin Categoria') as nivel,
             SUM(mp.coin_in_puntos) as coin_in_mensual,
             COUNT(DISTINCT mp.fecha_operacion) as dias_asistidos,
             COALESCE(MAX(c.total_cortesias), 0) as total_cortesias,
@@ -1000,7 +1000,7 @@ def control_invitaciones_mdj():
         SELECT
             mp.cliente_id as player_id,
             MAX(mp.cliente_nombre) as nombre,
-            COALESCE(MAX(s.player_level), 'MDJ') as nivel,
+            COALESCE(MAX(mp.categoria), COALESCE(MAX(s.player_level), 'Sin Categoria')) as nivel,
             SUM(mp.coin_in_puntos) as coin_in_mensual,
             COUNT(DISTINCT mp.fecha_operacion) as dias_asistidos,
             COALESCE(MAX(c.total_cortesias), 0) as total_cortesias,
@@ -1630,7 +1630,7 @@ def exportar_generar():
 
             jugadores_mesas = _exec(f"""
                 SELECT mp.cliente_id as player_id,
-                       MAX(mp.cliente_nombre) as nombre, 'MDJ' as nivel,
+                       MAX(mp.cliente_nombre) as nombre, COALESCE(MAX(mp.categoria), 'Sin Categoria') as nivel,
                        SUM(mp.coin_in_puntos) as coin_in_mensual,
                        COUNT(DISTINCT mp.fecha_operacion) as dias_asistidos,
                        COALESCE(MAX(c.total_cortesias), 0) as total_cortesias,
@@ -1762,7 +1762,7 @@ def exportar_generar():
 
             jugadores_raw = _exec(f"""
                 SELECT mp.cliente_id as player_id, MAX(mp.cliente_nombre) as nombre,
-                       COALESCE(MAX(s.player_level), 'MDJ') as nivel,
+                       COALESCE(MAX(mp.categoria), COALESCE(MAX(s.player_level), 'Sin Categoria')) as nivel,
                        SUM(mp.coin_in_puntos) as coin_in_mensual,
                        COUNT(DISTINCT mp.fecha_operacion) as dias_asistidos,
                        COALESCE(MAX(c.total_cortesias), 0) as total_cortesias,
@@ -1891,7 +1891,7 @@ def exportar_generar():
 
             jugadores_mesas = _exec(f"""
                 SELECT mp.cliente_id as player_id,
-                       MAX(mp.cliente_nombre) as nombre, 'MDJ' as nivel,
+                       MAX(mp.cliente_nombre) as nombre, COALESCE(MAX(mp.categoria), 'Sin Categoria') as nivel,
                        SUM(mp.coin_in_puntos) as coin_in_mensual,
                        COUNT(DISTINCT mp.fecha_operacion) as dias_asistidos,
                        COALESCE(MAX(c.total_cortesias), 0) as total_cortesias,
