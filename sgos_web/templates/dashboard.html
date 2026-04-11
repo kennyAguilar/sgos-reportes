@@ -161,7 +161,41 @@
                     query += '&' + selected.join('&');
                   }
                   
-                  window.location.href = baseUrl + query;
+                  let url = baseUrl + query;
+
+                  // Descargar via fetch (desktop guarda en Descargas, web descarga blob)
+                  this.classList.add('disabled');
+                  this.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Generando...';
+                  let btn = this;
+                  fetch(url, {credentials: 'same-origin'})
+                    .then(resp => {
+                      if (!resp.ok) throw new Error('Error en descarga');
+                      const ct = resp.headers.get('Content-Type') || '';
+                      if (ct.includes('application/json')) {
+                        return resp.json().then(data => {
+                          alert('Archivo guardado en:\n' + data.path);
+                        });
+                      }
+                      let filename = 'reporte.xlsx';
+                      let cd = resp.headers.get('Content-Disposition');
+                      if (cd) {
+                        let m = cd.match(/filename[^;=\n]*=["']?([^"';\n]+)/);
+                        if (m) filename = m[1];
+                      }
+                      return resp.blob().then(blob => {
+                        let a = document.createElement('a');
+                        a.href = URL.createObjectURL(blob);
+                        a.download = filename;
+                        document.body.appendChild(a);
+                        a.click();
+                        setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 100);
+                      });
+                    })
+                    .catch(err => alert('Error al descargar: ' + err.message))
+                    .finally(() => {
+                      btn.classList.remove('disabled');
+                      btn.innerHTML = '<i class="bi bi-download"></i> Descargar Excel';
+                    });
                 });
               }
             </script>

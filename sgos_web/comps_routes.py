@@ -1994,6 +1994,21 @@ def exportar_generar():
 
     output.seek(0)
     filename = f"Reporte_COMPS_{periodo}.xlsx"
+
+    # En modo desktop, guardar en Descargas directamente
+    if os.environ.get("SGOS_DESKTOP") == "1":
+        from pathlib import Path as _Path
+        downloads = _Path.home() / "Downloads"
+        downloads.mkdir(exist_ok=True)
+        dest = downloads / filename
+        counter = 1
+        stem, suffix = _Path(filename).stem, _Path(filename).suffix
+        while dest.exists():
+            dest = downloads / f"{stem} ({counter}){suffix}"
+            counter += 1
+        dest.write_bytes(output.getvalue())
+        return jsonify({"saved": True, "path": str(dest)})
+
     return send_file(output, download_name=filename,
                      as_attachment=True,
                      mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')

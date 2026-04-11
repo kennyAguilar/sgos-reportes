@@ -3,7 +3,7 @@ import uuid
 from io import BytesIO
 import pandas as pd
 from dotenv import load_dotenv
-from flask import Flask, render_template, request, redirect, url_for, send_file, flash, session, abort
+from flask import Flask, render_template, request, redirect, url_for, send_file, flash, session, abort, jsonify
 from sqlalchemy import select, func, distinct
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
@@ -13,6 +13,24 @@ from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
 load_dotenv()  # Carga las variables del archivo .env
+
+from pathlib import Path
+
+def desktop_save_response(output, filename):
+    """En modo desktop, guarda el archivo en Descargas y devuelve JSON."""
+    if os.environ.get("SGOS_DESKTOP") == "1":
+        downloads = Path.home() / "Downloads"
+        downloads.mkdir(exist_ok=True)
+        dest = downloads / filename
+        counter = 1
+        stem, suffix = Path(filename).stem, Path(filename).suffix
+        while dest.exists():
+            dest = downloads / f"{stem} ({counter}){suffix}"
+            counter += 1
+        dest.write_bytes(output.getvalue())
+        return jsonify({"saved": True, "path": str(dest)})
+    return send_file(output, as_attachment=True, download_name=filename,
+                     mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 try:
     from sgos_web.engine import procesar_sgos, exportar_excel_bytes, obtener_asistentes, guardar_datos_db, generar_reportes
@@ -25,7 +43,9 @@ app.secret_key = os.environ.get("FLASK_SECRET_KEY") or os.urandom(32).hex()
 # Cookies de sesión seguras
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
-if os.environ.get("FLASK_ENV") != "development":
+# SESSION_COOKIE_SECURE solo en producción con HTTPS (no en desktop/localhost)
+is_desktop = os.environ.get("SGOS_DESKTOP") == "1"
+if not is_desktop and os.environ.get("FLASK_ENV") != "development":
     app.config['SESSION_COOKIE_SECURE'] = True
 
 # Protección CSRF
@@ -53,11 +73,13 @@ login_manager = LoginManager()
 login_manager.init_app(app)
 login_manager.login_view = "login"
 
-# Configuración de Base de Datos
-# Si no hay variable DATABASE_URL o está vacía, usa SQLite local por defecto
+# Configuración de Base de Datos (Neon PostgreSQL obligatorio)
 db_url = os.environ.get("DATABASE_URL")
 if not db_url:
-    db_url = "sqlite:///sgos_local.db"
+    raise RuntimeError(
+        "La variable de entorno DATABASE_URL es obligatoria. "
+        "Configúrala con tu connection string de Neon PostgreSQL."
+    )
 
 app.config['SQLALCHEMY_DATABASE_URI'] = db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -207,7 +229,7 @@ with app.app_context():
         db.session.commit()
         print("Usuario 'admin' creado. Cambia la contraseña desde Gestión de Usuarios.")
 
-UPLOAD_FOLDER = "uploads"
+UPLOAD_FOLDER = os.path.join(os.path.abspath(os.getcwd()), "uploads")
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 app.config["MAX_CONTENT_LENGTH"] = 20 * 1024 * 1024  # 20MB (ajusta si quieres)
@@ -687,12 +709,7 @@ def download(file_id):
         tablas = generar_reportes(df, asistentes_seleccionados)
         output: BytesIO = exportar_excel_bytes(tablas)
         
-        return send_file(
-            output,
-            as_attachment=True,
-            download_name=download_name,
-            mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+        return desktop_save_response(output, download_name)
 
     path = safe_file_path(file_id)
     if not os.path.exists(path):
@@ -712,12 +729,7 @@ def download(file_id):
     tablas = preparar_tablas(path, opciones, asistentes_seleccionados)
     output: BytesIO = exportar_excel_bytes(tablas)
 
-    return send_file(
-        output,
-        as_attachment=True,
-        download_name="reporte_operaciones.xlsx",
-        mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
+    return desktop_save_response(output, "reporte_operaciones.xlsx")
 
 
 @app.route("/graphs")
