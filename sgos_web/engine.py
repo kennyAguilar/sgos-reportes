@@ -107,69 +107,67 @@ def _cargar_df(path_xlsx: str, sheet_name: str | None = None) -> pd.DataFrame:
 def guardar_datos_db(path_xlsx: str, db, OperacionModel, PremioModel, sheet_name: str | None = None):
     """
     Lee el Excel, detecta si es Getnet o Premios, y guarda en la tabla correspondiente.
+    Retorna (cantidad_registros, tipo_archivo, lista_asistentes).
     """
     df = _cargar_df(path_xlsx, sheet_name=sheet_name)
     
     if df.empty:
-        return 0, "No data"
+        return 0, "No data", []
 
-    # Detectar meses presentes en el archivo
+    asistentes = sorted(df["Attendant"].dropna().unique().tolist())
     meses_en_archivo = df["Mes"].unique()
-    
-    # Detectar tipo de archivo
     tipo_archivo = df["Tipo"].iloc[0] if "Tipo" in df.columns else "GETNET"
-    
     TargetModel = PremioModel if tipo_archivo == "PREMIOS" else OperacionModel
+    table = TargetModel.__table__
 
-    # Iniciar transacción
+    # Mapear columnas del DataFrame a columnas de la BD
+    col_rename = {
+        "Fecha": "fecha", "Jornada": "jornada", "IdCliente": "id_cliente",
+        "Monto": "monto", "Attendant": "attendant", "Validador": "validador",
+        "FormaPago": "forma_pago", "Ingreso": "ingreso_cawa",
+        "Mes": "mes", "Hora": "hora",
+    }
+
+    if tipo_archivo == "PREMIOS":
+        col_rename.update({"Maquina": "maquina", "Propina": "propina"})
+        db_cols = ["fecha", "jornada", "id_cliente", "monto", "propina",
+                   "maquina", "attendant", "validador", "forma_pago",
+                   "ingreso_cawa", "mes", "hora"]
+    else:
+        col_rename["Voucher"] = "voucher"
+        db_cols = ["fecha", "jornada", "id_cliente", "monto", "voucher",
+                   "attendant", "validador", "forma_pago",
+                   "ingreso_cawa", "mes", "hora"]
+
+    df_insert = df.rename(columns=col_rename)
+
+    # Asegurar que todas las columnas necesarias existen
+    defaults = {"id_cliente": "", "voucher": "", "validador": "",
+                "forma_pago": "", "ingreso_cawa": "", "maquina": "",
+                "propina": 0.0}
+    for col in db_cols:
+        if col not in df_insert.columns:
+            df_insert[col] = defaults.get(col, "")
+
+    df_insert = df_insert[db_cols].copy()
+
+    # Limpiar tipos
+    str_cols = ["id_cliente", "voucher", "validador", "forma_pago", "ingreso_cawa", "maquina"]
+    for c in str_cols:
+        if c in df_insert.columns:
+            df_insert[c] = df_insert[c].fillna("").astype(str)
+    if "propina" in df_insert.columns:
+        df_insert["propina"] = pd.to_numeric(df_insert["propina"], errors="coerce").fillna(0)
+
     try:
-        for mes in meses_en_archivo:
-            # Borrar datos existentes de ese mes en la tabla correspondiente
-            # Si el modelo tiene columna 'tipo', filtramos también por tipo para no borrar otros
-            query = db.session.query(TargetModel).filter(TargetModel.mes == mes)
-            if hasattr(TargetModel, 'tipo'):
-                query = query.filter(TargetModel.tipo == tipo_archivo)
-            query.delete()
-        
-        # Insertar nuevos datos
-        registros = []
-        for _, row in df.iterrows():
-            if tipo_archivo == "PREMIOS":
-                reg = PremioModel(
-                    fecha=row["Fecha"],
-                    jornada=row["Jornada"],
-                    id_cliente=str(row.get("IdCliente", "")),
-                    monto=row["Monto"],
-                    propina=row.get("Propina", 0),
-                    maquina=str(row.get("Máquina", "") or row.get("Maquina", "")),
-                    attendant=row["Attendant"],
-                    validador=str(row.get("Validador", "")),
-                    forma_pago=str(row.get("FormaPago", "")),
-                    ingreso_cawa=str(row.get("Ingreso", "")),
-                    mes=row["Mes"],
-                    hora=row["Hora"]
-                )
-            else:
-                reg = OperacionModel(
-                    fecha=row["Fecha"],
-                    jornada=row["Jornada"],
-                    id_cliente=str(row.get("IdCliente", "")),
-                    monto=row["Monto"],
-                    voucher=str(row.get("Voucher", "")),
-                    attendant=row["Attendant"],
-                    validador=str(row.get("Validador", "")),
-                    forma_pago=str(row.get("FormaPago", "")),
-                    ingreso_cawa=str(row.get("Ingreso", "")),
-                    mes=row["Mes"],
-                    hora=row["Hora"]
-                )
-            registros.append(reg)
-        
-        db.session.add_all(registros)
-        db.session.commit()
-        return len(registros), tipo_archivo
+        with db.engine.begin() as conn:
+            for mes in meses_en_archivo:
+                stmt = table.delete().where(table.c.mes == mes)
+                conn.execute(stmt)
+            df_insert.to_sql(table.name, con=conn, if_exists="append",
+                             index=False, method="multi", chunksize=1000)
+        return len(df_insert), tipo_archivo, asistentes
     except Exception as e:
-        db.session.rollback()
         raise e
 
 def generar_reportes(df: pd.DataFrame, asistentes_filtro: list = None) -> dict:
@@ -339,7 +337,7 @@ def generar_reportes(df: pd.DataFrame, asistentes_filtro: list = None) -> dict:
         # Usamos el mismo df_p que ya tiene 'Categoria' y 'FormaPagoNorm'
         # Pero necesitamos calcular Monto SOLO para Premios.
         # Creamos columna auxiliar MontoPremios
-        df_p["MontoPremios"] = df_p.apply(lambda x: x["Monto"] if x["Categoria"] == "Premios" else 0, axis=1)
+        df_p["MontoPremios"] = df_p["Monto"].where(df_p["Categoria"] == "Premios", 0)
         
         # Agrupamos por Mes y Maquina
         # Calculamos conteos por categoría y suma de MontoPremios

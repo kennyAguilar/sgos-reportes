@@ -1,4 +1,6 @@
 import os
+import gc
+import time
 import uuid
 from io import BytesIO
 import pandas as pd
@@ -33,9 +35,9 @@ def desktop_save_response(output, filename):
                      mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 try:
-    from sgos_web.engine import procesar_sgos, exportar_excel_bytes, obtener_asistentes, guardar_datos_db, generar_reportes
+    from sgos_web.engine import procesar_sgos, exportar_excel_bytes, obtener_asistentes, guardar_datos_db, generar_reportes, _cargar_df
 except ImportError:
-    from engine import procesar_sgos, exportar_excel_bytes, obtener_asistentes, guardar_datos_db, generar_reportes
+    from engine import procesar_sgos, exportar_excel_bytes, obtener_asistentes, guardar_datos_db, generar_reportes, _cargar_df
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY") or os.urandom(32).hex()
@@ -266,32 +268,35 @@ def aplicar_opciones(tablas: dict, opciones: list[str]) -> dict:
     return {k: v for k, v in tablas.items() if k in opciones}
 
 
-def preparar_tablas(path: str, opciones: list[str], asistentes_sel: list[str]) -> dict:
+def cleanup_old_uploads(folder, max_age_seconds=3600):
+    """Elimina archivos subidos con más de max_age_seconds de antigüedad."""
+    now = time.time()
+    for fname in os.listdir(folder):
+        fpath = os.path.join(folder, fname)
+        if os.path.isfile(fpath) and now - os.path.getmtime(fpath) > max_age_seconds:
+            try:
+                os.remove(fpath)
+            except OSError:
+                pass
+
+
+def preparar_tablas(path: str, opciones: list[str], asistentes_sel: list[str]) -> tuple[dict, list]:
     """
-    Regla:
-    - Si hay filtro de asistentes: filtra todas las tablas EXCEPTO las de TABLAS_NO_FILTRAR
-    - Si NO hay filtro: todo sin filtrar
-    - Aplica 'opciones' al final
+    Lee el Excel UNA sola vez. Retorna (tablas, asistentes_disponibles).
     """
-    tablas_base = procesar_sgos(path)  # 1 vez siempre
+    df = _cargar_df(path)
+    asistentes_disponibles = sorted(df["Attendant"].dropna().unique().tolist())
+    tablas_base = generar_reportes(df)
 
-    # Si no hay selección o viene vacío, devolvemos base con opciones
-    if not asistentes_sel:
-        return aplicar_opciones(tablas_base, opciones)
+    if not asistentes_sel or set(asistentes_sel) == set(asistentes_disponibles):
+        return aplicar_opciones(tablas_base, opciones), asistentes_disponibles
 
-    # Si seleccionaron TODOS, no hace falta reprocesar filtrado
-    asistentes_disponibles = obtener_asistentes(path)
-    if set(asistentes_sel) == set(asistentes_disponibles):
-        return aplicar_opciones(tablas_base, opciones)
-
-    tablas_filtradas = procesar_sgos(path, asistentes_filtro=asistentes_sel)  # 2da (solo si aplica)
-
-    # Forzar que ciertas tablas queden sin filtro
+    tablas_filtradas = generar_reportes(df, asistentes_sel)
     for nombre in TABLAS_NO_FILTRAR:
         if nombre in tablas_base:
             tablas_filtradas[nombre] = tablas_base[nombre]
 
-    return aplicar_opciones(tablas_filtradas, opciones)
+    return aplicar_opciones(tablas_filtradas, opciones), asistentes_disponibles
 
 
 def tablas_a_html(tablas: dict) -> dict:
@@ -316,6 +321,11 @@ def set_security_headers(response):
 @app.route("/sw.js")
 def service_worker():
     return app.send_static_file("js/sw.js"), 200, {"Content-Type": "application/javascript", "Service-Worker-Allowed": "/"}
+
+
+@app.route("/health")
+def health():
+    return "OK", 200
 
 
 @app.route("/login", methods=["GET", "POST"])
@@ -438,9 +448,12 @@ def index():
         path = os.path.join(app.config["UPLOAD_FOLDER"], saved_name)
         f.save(path)
 
-        # --- NUEVO: Guardar en Base de Datos ---
+        cleanup_old_uploads(app.config["UPLOAD_FOLDER"])
+
+        # --- Guardar en Base de Datos ---
         try:
-            total_guardados, tipo_archivo = guardar_datos_db(path, db, Operacion, Premio)
+            total_guardados, tipo_archivo, _ = guardar_datos_db(path, db, Operacion, Premio)
+            gc.collect()
             flash(f"¡Éxito! Se guardaron {total_guardados} registros de tipo {tipo_archivo} en la base de datos.", "success")
         except Exception as e:
             app.logger.error(f"Error al guardar en base de datos: {e}")
@@ -467,22 +480,17 @@ def dashboard(file_id):
         return "Archivo no encontrado.", 404
 
     try:
-        asistentes_disponibles = obtener_asistentes(path)
-
         if request.method == "POST":
             asistentes_sel = request.form.getlist("asistentes")
-            # Si el usuario no marca nada, lo tratamos como "todos" (vacío)
-            # Si prefieres lo contrario, cámbialo.
             session[f"asistentes_sel_{file_id}"] = asistentes_sel
             return redirect(url_for("dashboard", file_id=file_id))
 
         opciones = session.get(f"tablas_{file_id}", [])
         asistentes_sel = session.get(f"asistentes_sel_{file_id}", [])
 
-        # Si no hay selección guardada, mostramos todos marcados por defecto
+        tablas, asistentes_disponibles = preparar_tablas(path, opciones, asistentes_sel)
         asistentes_seleccionados = asistentes_sel or asistentes_disponibles
 
-        tablas = preparar_tablas(path, opciones, asistentes_seleccionados)
         return render_template(
             "dashboard.html",
             file_id=file_id,
@@ -716,17 +724,13 @@ def download(file_id):
         return "Archivo no encontrado.", 404
 
     opciones = session.get(f"tablas_{file_id}", [])
-    asistentes_disponibles = obtener_asistentes(path)
 
-    # Priorizar filtro desde URL (si viene del botón con JS)
     if request.args.get("filtered") == "true":
         asistentes_sel = request.args.getlist("asistentes")
     else:
         asistentes_sel = session.get(f"asistentes_sel_{file_id}", [])
 
-    asistentes_seleccionados = asistentes_sel or asistentes_disponibles
-
-    tablas = preparar_tablas(path, opciones, asistentes_seleccionados)
+    tablas, _ = preparar_tablas(path, opciones, asistentes_sel)
     output: BytesIO = exportar_excel_bytes(tablas)
 
     return desktop_save_response(output, "reporte_operaciones.xlsx")
