@@ -5,6 +5,11 @@ body {
   color: #e2e8f0;
 }
 
+/* Headings: override Bootstrap's --bs-heading-color que en modo claro es oscuro */
+h1, h2, h3, h4, h5, h6 {
+  color: #e2e8f0;
+}
+
 /* Login Page Specific */
 body.login-page {
   display: flex;
