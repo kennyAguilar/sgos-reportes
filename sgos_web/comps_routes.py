@@ -1134,6 +1134,229 @@ def control_invitaciones_mdj():
                            anio_actual=anio, mes_actual=mes, jefe_actual=jefe)
 
 
+# ─────────────────────────── Control Invitaciones Marketing ───────────────────────────
+
+@comps_bp.route('/control/invitaciones-mkt')
+@login_required
+def control_invitaciones_mkt():
+    anio = request.args.get('anio', '')
+    mes = request.args.get('mes', '')
+    jefe = request.args.get('jefe', '')
+    anios, meses_disp = get_anios_meses()
+
+    jefes_disp = [(r['usuario_id'], r['nombre']) for r in _exec(
+        "SELECT usuario_id, nombre FROM jefaturas WHERE area = 'Marketing' ORDER BY nombre")]
+
+    jefe_filter_sql = ""
+    jefe_p = {}
+    if jefe:
+        jefe_filter_sql = " AND c.usuario_id = :jefe_id"
+        jefe_p = {"jefe_id": jefe}
+    else:
+        jefe_filter_sql = " AND c.usuario_id IN (SELECT usuario_id FROM jefaturas WHERE area = 'Marketing')"
+
+    sw, sp = build_date_filter('s.gaming_date', anio, mes)
+    cw, cparam = build_date_filter('c.fecha_jornada', anio, mes)
+    pw, pparam = build_date_filter('p.fecha_jornada', anio, mes)
+    mw, mparam = build_date_filter('m.fecha_operacion', anio, mes)
+
+    sw_solo, sp_solo = build_date_filter('gaming_date', anio, mes)
+    mw_solo, mp_solo = build_date_filter('fecha_operacion', anio, mes)
+    dias_totales = (_exec_one(f"""
+        SELECT COUNT(DISTINCT fecha) as dias FROM (
+            SELECT gaming_date as fecha FROM srw_jugadores {sw_solo}
+            UNION
+            SELECT fecha_operacion as fecha FROM mesas_puntos {mw_solo}
+        ) sub
+    """, {**sp_solo, **mp_solo})).get('dias') or 1
+
+    pct_primario, pct_categoria = _get_invitaciones_config()
+
+    cw_inner = (cw + jefe_filter_sql) if cw else ("WHERE 1=1" + jefe_filter_sql)
+
+    sw_plain, sp_plain = build_date_filter('gaming_date', anio, mes)
+    mw_plain, mp_plain = build_date_filter('fecha_operacion', anio, mes)
+
+    all_params = {**cparam, **jefe_p, **pparam, **mparam, **sp_plain, **mp_plain, **sp}
+
+    jugadores_srw = _exec(f"""
+        SELECT
+            s.player_id,
+            MAX(s.full_name) as nombre,
+            MAX(s.player_level) as nivel,
+            SUM(s.coin_in) + COALESCE(MAX(m.coin_in_mesas), 0) as coin_in_mensual,
+            COALESCE(MAX(d.dias_combinados), COUNT(DISTINCT s.gaming_date)) as dias_asistidos,
+            COALESCE(MAX(c.total_cortesias), 0) as total_cortesias,
+            COALESCE(MAX(c.monto_micros), 0) as monto_micros,
+            COALESCE(MAX(p.cant_premios), 0) as cant_premios,
+            COALESCE(MAX(p.monto_premios), 0) as monto_premios
+        FROM srw_jugadores s
+        LEFT JOIN (
+            SELECT cliente_id, COUNT(*) as total_cortesias, SUM(micros) as monto_micros
+            FROM cortesias c {cw_inner}
+            GROUP BY cliente_id
+        ) c ON s.player_id = c.cliente_id
+        LEFT JOIN (
+            SELECT cliente_id, COUNT(*) as cant_premios, SUM(transferencia_final) as monto_premios
+            FROM premios_comps p {pw}
+            GROUP BY cliente_id
+        ) p ON s.player_id = p.cliente_id
+        LEFT JOIN (
+            SELECT cliente_id, SUM(coin_in_puntos) as coin_in_mesas
+            FROM mesas_puntos m {mw}
+            GROUP BY cliente_id
+        ) m ON s.player_id = m.cliente_id
+        LEFT JOIN (
+            SELECT cliente_id, COUNT(DISTINCT fecha) as dias_combinados FROM (
+                SELECT player_id as cliente_id, gaming_date as fecha FROM srw_jugadores {sw_plain}
+                UNION
+                SELECT cliente_id, fecha_operacion as fecha FROM mesas_puntos {mw_plain}
+            ) sub GROUP BY cliente_id
+        ) d ON s.player_id = d.cliente_id
+        {sw}
+        GROUP BY s.player_id
+        HAVING COALESCE(MAX(c.total_cortesias), 0) > 0
+        ORDER BY coin_in_mensual DESC
+    """, all_params)
+
+    # Jugadores solo-mesas (no en SRW)
+    sw_excl, sp_excl = build_date_filter('gaming_date', anio, mes)
+    mw_inner, mparam_inner = build_date_filter('mp.fecha_operacion', anio, mes)
+    mesas_excl = f"mp.cliente_id NOT IN (SELECT DISTINCT player_id FROM srw_jugadores {sw_excl})"
+    if mparam_inner:
+        mw_conditions = []
+        if anio:
+            mw_conditions.append(f"SUBSTR(mp.fecha_operacion, 1, 4) = :anio_mp_fecha_operacion")
+        if mes:
+            mw_conditions.append(f"SUBSTR(mp.fecha_operacion, 6, 2) = :mes_mp_fecha_operacion")
+        mesas_where = "WHERE " + " AND ".join(mw_conditions) + " AND " + mesas_excl
+    else:
+        mesas_where = "WHERE " + mesas_excl
+
+    mesas_params = {**cparam, **jefe_p, **pparam, **mparam_inner, **sp_excl}
+
+    jugadores_mesas = _exec(f"""
+        SELECT
+            mp.cliente_id as player_id,
+            MAX(mp.cliente_nombre) as nombre,
+            COALESCE(MAX(mp.categoria), 'Sin Categoria') as nivel,
+            SUM(mp.coin_in_puntos) as coin_in_mensual,
+            COUNT(DISTINCT mp.fecha_operacion) as dias_asistidos,
+            COALESCE(MAX(c.total_cortesias), 0) as total_cortesias,
+            COALESCE(MAX(c.monto_micros), 0) as monto_micros,
+            COALESCE(MAX(p.cant_premios), 0) as cant_premios,
+            COALESCE(MAX(p.monto_premios), 0) as monto_premios
+        FROM mesas_puntos mp
+        LEFT JOIN (
+            SELECT cliente_id, COUNT(*) as total_cortesias, SUM(micros) as monto_micros
+            FROM cortesias c {cw_inner}
+            GROUP BY cliente_id
+        ) c ON mp.cliente_id = c.cliente_id
+        LEFT JOIN (
+            SELECT cliente_id, COUNT(*) as cant_premios, SUM(transferencia_final) as monto_premios
+            FROM premios_comps p {pw}
+            GROUP BY cliente_id
+        ) p ON mp.cliente_id = p.cliente_id
+        {mesas_where}
+        GROUP BY mp.cliente_id
+        HAVING COALESCE(MAX(c.total_cortesias), 0) > 0
+        ORDER BY coin_in_mensual DESC
+    """, mesas_params)
+
+    # Jugadores solo-cortesías Marketing (no en SRW ni mesas)
+    ids_ya = set(j['player_id'] for j in jugadores_srw) | set(j['player_id'] for j in jugadores_mesas)
+    cort_only_params = {**cparam, **jefe_p, **pparam}
+    jugadores_cort_only = _exec(f"""
+        SELECT
+            c.cliente_id as player_id,
+            MAX(c.nombre_cliente) as nombre,
+            '-' as nivel,
+            0 as coin_in_mensual,
+            0 as dias_asistidos,
+            COUNT(c.id) as total_cortesias,
+            SUM(c.micros) as monto_micros,
+            COALESCE(MAX(p.cant_premios), 0) as cant_premios,
+            COALESCE(MAX(p.monto_premios), 0) as monto_premios
+        FROM cortesias c
+        LEFT JOIN (
+            SELECT cliente_id, COUNT(*) as cant_premios, SUM(transferencia_final) as monto_premios
+            FROM premios_comps p {pw}
+            GROUP BY cliente_id
+        ) p ON c.cliente_id = p.cliente_id
+        {cw_inner}
+        GROUP BY c.cliente_id
+        ORDER BY monto_micros DESC
+    """, cort_only_params)
+    jugadores_cort_only = [j for j in jugadores_cort_only if j['player_id'] not in ids_ya]
+
+    jugadores = list(jugadores_srw) + list(jugadores_mesas) + list(jugadores_cort_only)
+    all_resultados = _calc_invitaciones(jugadores, pct_primario, pct_categoria, dias_totales)
+
+    # Gráfico de torta Marketing
+    cw_chart, cp_chart = build_date_filter('c.fecha_jornada', anio, mes)
+    chart_params = dict(cp_chart)
+    extra_chart = " AND j.area = 'Marketing'" if cw_chart else "WHERE j.area = 'Marketing'"
+    chart_rows = _exec(f"""
+        SELECT j.nombre as etiqueta, COUNT(*) as cantidad
+        FROM cortesias c
+        LEFT JOIN jefaturas j ON c.usuario_id = j.usuario_id
+        {cw_chart}{extra_chart}
+        GROUP BY j.nombre ORDER BY cantidad DESC
+    """, chart_params)
+    chart_labels = [r['etiqueta'] or 'Sin asignar' for r in chart_rows]
+    chart_cantidades = [r['cantidad'] for r in chart_rows]
+    chart_titulo = "Cortesías por Jefe — Marketing"
+
+    # KPIs
+    cw_kpi, cp_kpi = build_date_filter('fecha_jornada', anio, mes)
+    kpi_cortesias = _exec_one(f"SELECT COALESCE(SUM(micros), 0) as total FROM cortesias {cw_kpi}", cp_kpi)
+    sw_kpi, sp_kpi = build_date_filter('gaming_date', anio, mes)
+    kpi_coin_srw = _exec_one(f"SELECT COALESCE(SUM(coin_in), 0) as total FROM srw_jugadores {sw_kpi}", sp_kpi)
+    mw_kpi, mp_kpi = build_date_filter('fecha_operacion', anio, mes)
+    kpi_coin_mesas = _exec_one(f"SELECT COALESCE(SUM(coin_in_puntos), 0) as total FROM mesas_puntos {mw_kpi}", mp_kpi)
+    total_cortesias_periodo = kpi_cortesias.get('total') or 0
+    total_coin_in_periodo = (kpi_coin_srw.get('total') or 0) + (kpi_coin_mesas.get('total') or 0)
+    pct_cortesias_coin_in = round(total_cortesias_periodo * 100.0 / total_coin_in_periodo, 3) if total_coin_in_periodo > 0 else 0
+
+    # Coin-In solo de jugadores CON cortesías (Marketing)
+    cw_cc, cp_cc = build_date_filter('fecha_jornada', anio, mes)
+    subq_cort = f"SELECT DISTINCT cliente_id FROM cortesias {cw_cc}"
+    sw_cc, sp_cc = build_date_filter('gaming_date', anio, mes)
+    coin_srw_cc = _exec_one(f"SELECT COALESCE(SUM(coin_in), 0) as total FROM srw_jugadores {sw_cc} {'AND' if sw_cc else 'WHERE'} player_id IN ({subq_cort})", {**sp_cc, **cp_cc})
+    mw_cc, mp_cc = build_date_filter('fecha_operacion', anio, mes)
+    coin_mesas_cc = _exec_one(f"SELECT COALESCE(SUM(coin_in_puntos), 0) as total FROM mesas_puntos {mw_cc} {'AND' if mw_cc else 'WHERE'} cliente_id IN ({subq_cort})", {**mp_cc, **cp_cc})
+    coin_in_con_cortesias = (coin_srw_cc.get('total') or 0) + (coin_mesas_cc.get('total') or 0)
+
+    # Detalle de productos por cliente (solo cuando se filtra por jefe)
+    prods_por_cliente = {}
+    if jefe:
+        prods_raw = _exec(f"""
+            SELECT c.cliente_id, c.descripcion_cat, c.descripcion_prod,
+                   COUNT(*) as cantidad, SUM(c.micros) as monto
+            FROM cortesias c
+            {cw_inner}
+            GROUP BY c.cliente_id, c.descripcion_cat, c.descripcion_prod
+            ORDER BY c.descripcion_cat, monto DESC
+        """, {**cparam, **jefe_p})
+        for r in prods_raw:
+            prods_por_cliente.setdefault(str(r['cliente_id']), []).append(r)
+
+    return render_template('comps/control_invitaciones_mkt.html',
+                           resultados=all_resultados, dias_totales=dias_totales,
+                           pct_primario=pct_primario, pct_categoria=pct_categoria,
+                           chart_labels=chart_labels,
+                           chart_cantidades=chart_cantidades,
+                           chart_titulo=chart_titulo,
+                           total_cortesias_periodo=total_cortesias_periodo,
+                           total_coin_in_periodo=total_coin_in_periodo,
+                           pct_cortesias_coin_in=pct_cortesias_coin_in,
+                           coin_in_con_cortesias=coin_in_con_cortesias,
+                           prods_por_cliente=prods_por_cliente,
+                           anios=anios, meses_disp=meses_disp,
+                           jefes_disp=jefes_disp,
+                           anio_actual=anio, mes_actual=mes, jefe_actual=jefe)
+
+
 # ─────────────────────────── Auditoría Coin-In Cero ───────────────────────────
 
 @comps_bp.route('/auditoria/coinin-cero')

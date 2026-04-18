@@ -42,13 +42,14 @@
             </ul>
           </li>
           <li class="nav-item dropdown">
-            <a class="nav-link dropdown-toggle {{ 'active' if request.endpoint in ('comps.control_invitaciones','comps.control_invitaciones_mda','comps.control_invitaciones_mdj') }}" href="#" role="button" data-bs-toggle="dropdown">
+            <a class="nav-link dropdown-toggle {{ 'active' if request.endpoint in ('comps.control_invitaciones','comps.control_invitaciones_mda','comps.control_invitaciones_mdj','comps.control_invitaciones_mkt') }}" href="#" role="button" data-bs-toggle="dropdown">
               <i class="bi bi-shield-check"></i> Control
             </a>
             <ul class="dropdown-menu">
               <li><a class="dropdown-item {{ 'active' if request.endpoint == 'comps.control_invitaciones' }}" href="{{ url_for('comps.control_invitaciones') }}"><i class="bi bi-people"></i> Invitaciones General</a></li>
               <li><a class="dropdown-item {{ 'active' if request.endpoint == 'comps.control_invitaciones_mda' }}" href="{{ url_for('comps.control_invitaciones_mda') }}"><i class="bi bi-dice-5"></i> Invitaciones MDA</a></li>
               <li><a class="dropdown-item {{ 'active' if request.endpoint == 'comps.control_invitaciones_mdj' }}" href="{{ url_for('comps.control_invitaciones_mdj') }}"><i class="bi bi-suit-spade"></i> Invitaciones MDJ</a></li>
+              <li><a class="dropdown-item {{ 'active' if request.endpoint == 'comps.control_invitaciones_mkt' }}" href="{{ url_for('comps.control_invitaciones_mkt') }}"><i class="bi bi-megaphone"></i> Invitaciones Marketing</a></li>
             </ul>
           </li>
           <li class="nav-item">

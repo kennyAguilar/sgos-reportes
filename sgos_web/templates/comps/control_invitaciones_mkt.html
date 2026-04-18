@@ -1,0 +1,171 @@
+{% extends "comps/layout_comps.html" %}
+{% block title %}COMPS — Invitaciones Marketing{% endblock %}
+
+{% block content %}
+<a href="{{ url_for('comps.comps_index') }}" class="btn btn-outline-secondary btn-sm mb-3"><i class="bi bi-arrow-left"></i> Volver</a>
+<h2 class="mb-4"><i class="bi bi-megaphone"></i> Control de Invitaciones — Marketing</h2>
+
+<!-- Filtros -->
+<div class="card mb-4">
+  <div class="card-body">
+    <form method="GET" class="row g-3 align-items-end">
+      <div class="col-md-3">
+        <label class="form-label">Año</label>
+        <select name="anio" class="form-select">
+          <option value="">Todos</option>
+          {% for a in anios %}<option value="{{ a }}" {{ 'selected' if a == anio_actual }}>{{ a }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Mes</label>
+        <select name="mes" class="form-select">
+          <option value="">Todos</option>
+          {% for m in meses_disp %}<option value="{{ m }}" {{ 'selected' if m == mes_actual }}>{{ MESES_NOMBRE.get(m, m) }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <label class="form-label">Jefe Marketing</label>
+        <select name="jefe" class="form-select">
+          <option value="">Todos</option>
+          {% for uid, nombre in jefes_disp %}<option value="{{ uid }}" {{ 'selected' if uid == jefe_actual }}>{{ nombre }}</option>{% endfor %}
+        </select>
+      </div>
+      <div class="col-md-3">
+        <button type="submit" class="btn btn-primary"><i class="bi bi-funnel"></i> Filtrar</button>
+        <a href="{{ url_for('comps.control_invitaciones_mkt') }}" class="btn btn-outline-secondary">Limpiar</a>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- KPIs -->
+<div class="row g-3 mb-4">
+  <div class="col-md-4">
+    <div class="card text-center h-100"><div class="card-body">
+      <h6 class="text-light">Cortesías Marketing</h6>
+      <h3 class="text-success">${{ "{:,.0f}".format(total_cortesias_periodo) }}</h3>
+    </div></div>
+  </div>
+  <div class="col-md-4">
+    <div class="card text-center h-100"><div class="card-body">
+      <h6 class="text-light">Coin-In Total</h6>
+      <h3 class="text-info">${{ "{:,.0f}".format(total_coin_in_periodo) }}</h3>
+    </div></div>
+  </div>
+  <div class="col-md-4">
+    <div class="card text-center h-100"><div class="card-body">
+      <h6 class="text-light">% Cortesía/CoinIn</h6>
+      <h3 class="text-warning">{{ "%.3f"|format(pct_cortesias_coin_in) }}%</h3>
+      <small class="text-light opacity-50" style="font-size:.65rem">Cortesías / Coin-In × 100</small><br>
+      {% if coin_in_con_cortesias > 0 %}
+      <span class="text-info" style="font-size:.85rem">{{ "%.4f"|format(total_cortesias_periodo / coin_in_con_cortesias * 0.065 * 100) }}%</span><br>
+      <small class="text-light opacity-50" style="font-size:.65rem">Monto Cortesías / Coin-In (c/cortesías) × 0.065 × 100</small>
+      {% endif %}
+    </div></div>
+  </div>
+</div>
+
+<!-- Gráfico -->
+{% if chart_labels %}
+<div class="card mb-4">
+  <div class="card-body">
+    <h5 class="card-title">{{ chart_titulo }}</h5>
+    <div style="max-width: 700px; min-height: 350px; margin: 0 auto;">
+      <canvas id="chartMkt"></canvas>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+<!-- Tabla -->
+<div class="card">
+  <div class="card-body">
+    <h5 class="card-title">Detalle Marketing — Días totales: {{ dias_totales }}</h5>
+    <div class="table-responsive">
+      <table class="table table-dark table-striped table-hover table-sm sortable">
+        <thead>
+          <tr>
+            <th>Nombre</th><th>Nivel</th><th>Días</th><th>%Asist.</th>
+            <th>Coin-In</th><th>Cortesías</th><th>Monto</th>
+            <th>Invitación</th><th>Saldo</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in resultados %}
+          {% set outer_idx = loop.index %}
+          {% if jefe_actual and prods_por_cliente %}
+          <tr class="caso-row {{ 'table-danger' if r.saldo < 0 else '' }}" data-caso="{{ outer_idx }}" style="cursor:pointer" title="Click para ver productos">
+            <td><i class="bi bi-chevron-right me-1 chevron-icon"></i>{{ r.nombre }}</td>
+          {% else %}
+          <tr class="{{ 'table-danger' if r.saldo < 0 else '' }}">
+            <td>{{ r.nombre }}</td>
+          {% endif %}
+            <td><span class="badge bg-info">{{ r.nivel }}</span></td>
+            <td>{{ r.dias_asistidos }}</td>
+            <td>{{ r.pct_asistencia }}%</td>
+            <td>${{ "{:,.0f}".format(r.coin_in_mensual or 0) }}</td>
+            <td>{{ r.total_cortesias }}</td>
+            <td>${{ "{:,.0f}".format(r.monto_micros or 0) }}</td>
+            <td>${{ "{:,.0f}".format(r.invitacion_mensual or 0) }}</td>
+            <td class="{{ 'text-danger fw-bold' if r.saldo < 0 else 'text-success' }}">${{ "{:,.0f}".format(r.saldo) }}</td>
+          </tr>
+          {% if jefe_actual and prods_por_cliente %}
+          {% for prod in prods_por_cliente.get(r.player_id|string, []) %}
+          <tr class="sub-{{ outer_idx }}" style="display:none; background:rgba(255,255,255,0.03)">
+            <td colspan="2" class="ps-4 text-info small">
+              <i class="bi bi-dot"></i> {{ prod.descripcion_cat }} — {{ prod.descripcion_prod }}
+            </td>
+            <td></td><td></td>
+            <td></td>
+            <td class="small">{{ prod.cantidad }}</td>
+            <td class="small">${{ "{:,.0f}".format(prod.monto or 0) }}</td>
+            <td colspan="2"></td>
+          </tr>
+          {% endfor %}
+          {% endif %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{% if chart_labels %}
+<script>
+new Chart(document.getElementById('chartMkt').getContext('2d'), {
+  type: 'pie',
+  data: {
+    labels: {{ chart_labels|tojson }},
+    datasets: [{
+      data: {{ chart_cantidades|tojson }},
+      backgroundColor: ['#3b82f6','#10b981','#f59e0b','#ef4444','#8b5cf6','#ec4899','#06b6d4','#84cc16']
+    }]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    plugins: {
+      legend: {
+        position: 'right',
+        labels: { color: '#e2e8f0', boxWidth: 14, padding: 10, font: { size: 12 } }
+      }
+    }
+  }
+});
+</script>
+{% endif %}
+<script>
+document.querySelectorAll('.caso-row').forEach(function(row) {
+  row.addEventListener('click', function() {
+    var id = this.dataset.caso;
+    var subs = document.querySelectorAll('.sub-' + id);
+    var chevron = this.querySelector('.chevron-icon');
+    var open = subs.length > 0 && subs[0].style.display !== 'none';
+    subs.forEach(function(s) { s.style.display = open ? 'none' : ''; });
+    if (chevron) chevron.className = 'bi me-1 chevron-icon ' + (open ? 'bi-chevron-right' : 'bi-chevron-down');
+  });
+});
+</script>
+{% endblock %}
