@@ -92,8 +92,9 @@
         </thead>
         <tbody>
           {% for r in resultados %}
+          {% set outer_idx = loop.index %}
           {% if jefe_actual and prods_por_cliente %}
-          <tr class="caso-row {{ 'table-danger' if r.saldo < 0 else '' }}" data-caso="{{ loop.index }}" style="cursor:pointer" title="Click para ver productos">
+          <tr class="caso-row {{ 'table-danger' if r.saldo < 0 else '' }}" data-caso="{{ outer_idx }}" style="cursor:pointer" title="Click para ver productos">
             <td><i class="bi bi-chevron-right me-1 chevron-icon"></i>{{ r.nombre }}</td>
           {% else %}
           <tr class="{{ 'table-danger' if r.saldo < 0 else '' }}">
@@ -110,7 +111,7 @@
           </tr>
           {% if jefe_actual and prods_por_cliente %}
           {% for prod in prods_por_cliente.get(r.player_id|string, []) %}
-          <tr class="sub-{{ loop.parent.loop.index }}" style="display:none; background:rgba(255,255,255,0.03)">
+          <tr class="sub-{{ outer_idx }}" style="display:none; background:rgba(255,255,255,0.03)">
             <td colspan="2" class="ps-4 text-info small">
               <i class="bi bi-dot"></i> {{ prod.descripcion_cat }} — {{ prod.descripcion_prod }}
             </td>
