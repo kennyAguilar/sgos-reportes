@@ -1,0 +1,180 @@
+{% extends "comps/layout_comps.html" %}
+{% block title %}Configuración — COMPS{% endblock %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-between mb-4">
+  <h2 class="mb-0"><i class="bi bi-gear"></i> Configuración</h2>
+  <span class="text-muted small">Administra jefaturas y categorías sin usar Excel</span>
+</div>
+
+<ul class="nav nav-tabs mb-3" id="configTabs" role="tablist">
+  <li class="nav-item" role="presentation">
+    <button class="nav-link active" id="tab-jefaturas" data-bs-toggle="tab" data-bs-target="#panel-jefaturas" type="button" role="tab">
+      <i class="bi bi-person-badge"></i> Jefaturas ({{ jefaturas|length }})
+    </button>
+  </li>
+  <li class="nav-item" role="presentation">
+    <button class="nav-link" id="tab-categorias" data-bs-toggle="tab" data-bs-target="#panel-categorias" type="button" role="tab">
+      <i class="bi bi-tags"></i> Categorías ({{ categorias|length }})
+    </button>
+  </li>
+</ul>
+
+<div class="tab-content">
+  {# ───────────────────────── JEFATURAS ───────────────────────── #}
+  <div class="tab-pane fade show active" id="panel-jefaturas" role="tabpanel">
+    <div class="card mb-4">
+      <div class="card-header">
+        <i class="bi bi-plus-circle"></i> Nueva jefatura
+      </div>
+      <div class="card-body">
+        <form method="POST" action="{{ url_for('comps.jefatura_crear') }}" class="row g-3">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <div class="col-md-3">
+            <label class="form-label">Usuario ID *</label>
+            <input type="text" name="usuario_id" class="form-control" required>
+          </div>
+          <div class="col-md-5">
+            <label class="form-label">Nombre *</label>
+            <input type="text" name="nombre" class="form-control" required>
+          </div>
+          <div class="col-md-2">
+            <label class="form-label">Área</label>
+            <select name="area" class="form-select">
+              <option value="MDA">MDA</option>
+              <option value="MDJ">MDJ</option>
+              <option value="MRK">MRK</option>
+              <option value="">(sin área)</option>
+            </select>
+          </div>
+          <div class="col-md-2 d-flex align-items-end">
+            <button type="submit" class="btn btn-primary w-100">
+              <i class="bi bi-plus-lg"></i> Agregar
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><i class="bi bi-list-ul"></i> Listado de jefaturas</div>
+      <div class="table-responsive">
+        <table class="table table-hover mb-0 align-middle">
+          <thead class="table-light">
+            <tr>
+              <th style="width:120px">Usuario ID</th>
+              <th>Nombre</th>
+              <th style="width:100px">Área</th>
+              <th style="width:180px" class="text-end">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for j in jefaturas %}
+            <tr>
+              <form method="POST" action="{{ url_for('comps.jefatura_editar', jef_id=j.id) }}" class="d-contents">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <td><input type="text" name="usuario_id" value="{{ j.usuario_id }}" class="form-control form-control-sm"></td>
+                <td><input type="text" name="nombre" value="{{ j.nombre }}" class="form-control form-control-sm"></td>
+                <td>
+                  <select name="area" class="form-select form-select-sm">
+                    {% for a in ['MDA','MDJ','MRK',''] %}
+                      <option value="{{ a }}" {% if (j.area or '') == a %}selected{% endif %}>{{ a or '(ninguna)' }}</option>
+                    {% endfor %}
+                  </select>
+                </td>
+                <td class="text-end">
+                  <button type="submit" class="btn btn-sm btn-outline-success" title="Guardar">
+                    <i class="bi bi-check-lg"></i>
+                  </button>
+              </form>
+              <form method="POST" action="{{ url_for('comps.jefatura_eliminar', jef_id=j.id) }}" class="d-inline"
+                    onsubmit="return confirm('¿Eliminar la jefatura de {{ j.nombre }}?');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-sm btn-outline-danger" title="Eliminar">
+                  <i class="bi bi-trash"></i>
+                </button>
+              </form>
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4" class="text-center text-muted py-4">No hay jefaturas registradas.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  {# ───────────────────────── CATEGORÍAS ───────────────────────── #}
+  <div class="tab-pane fade" id="panel-categorias" role="tabpanel">
+    <div class="card mb-4">
+      <div class="card-header">
+        <i class="bi bi-plus-circle"></i> Nueva categoría
+      </div>
+      <div class="card-body">
+        <form method="POST" action="{{ url_for('comps.categoria_crear') }}" class="row g-3">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+          <div class="col-md-6">
+            <label class="form-label">Categoría *</label>
+            <input type="text" name="categoria" class="form-control" required placeholder="Ej: Oro, Plata, Platino…">
+          </div>
+          <div class="col-md-4">
+            <label class="form-label">Porcentaje (%)</label>
+            <input type="number" step="0.01" name="porcentaje" class="form-control" value="0">
+          </div>
+          <div class="col-md-2 d-flex align-items-end">
+            <button type="submit" class="btn btn-primary w-100">
+              <i class="bi bi-plus-lg"></i> Agregar
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header"><i class="bi bi-list-ul"></i> Listado de categorías</div>
+      <div class="table-responsive">
+        <table class="table table-hover mb-0 align-middle">
+          <thead class="table-light">
+            <tr>
+              <th>Categoría</th>
+              <th style="width:200px">Porcentaje (%)</th>
+              <th style="width:180px" class="text-end">Acciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for c in categorias %}
+            <tr>
+              <form method="POST" action="{{ url_for('comps.categoria_editar', cat_id=c.id) }}" class="d-contents">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <td><input type="text" name="categoria" value="{{ c.categoria }}" class="form-control form-control-sm"></td>
+                <td><input type="number" step="0.01" name="porcentaje" value="{{ c.porcentaje }}" class="form-control form-control-sm"></td>
+                <td class="text-end">
+                  <button type="submit" class="btn btn-sm btn-outline-success" title="Guardar">
+                    <i class="bi bi-check-lg"></i>
+                  </button>
+              </form>
+              <form method="POST" action="{{ url_for('comps.categoria_eliminar', cat_id=c.id) }}" class="d-inline"
+                    onsubmit="return confirm('¿Eliminar la categoría {{ c.categoria }}?');">
+                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                <button type="submit" class="btn btn-sm btn-outline-danger" title="Eliminar">
+                  <i class="bi bi-trash"></i>
+                </button>
+              </form>
+                </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="3" class="text-center text-muted py-4">No hay categorías registradas.</td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>
+  /* Permite que dos <form> compartan la misma fila de tabla sin romper el layout */
+  .d-contents { display: contents; }
+</style>
+{% endblock %}

@@ -61,6 +61,11 @@
               <i class="bi bi-download"></i> Exportar
             </a>
           </li>
+          <li class="nav-item">
+            <a class="nav-link {{ 'active' if request.endpoint == 'comps.configuracion' }}" href="{{ url_for('comps.configuracion') }}">
+              <i class="bi bi-gear"></i> Configuración
+            </a>
+          </li>
         </ul>
         <ul class="navbar-nav">
           <li class="nav-item">

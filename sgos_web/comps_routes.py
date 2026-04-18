@@ -2012,3 +2012,135 @@ def exportar_generar():
     return send_file(output, download_name=filename,
                      as_attachment=True,
                      mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+
+
+# ─────────────────────────── Configuración: Jefaturas y Categorías ───────────────────────────
+
+@comps_bp.route('/configuracion')
+@login_required
+def configuracion():
+    db = _get_db()
+    jefaturas = db.session.execute(text(
+        "SELECT id, usuario_id, nombre, area FROM jefaturas ORDER BY area, nombre"
+    )).fetchall()
+    categorias = db.session.execute(text(
+        "SELECT id, categoria, porcentaje FROM categorias_nivel ORDER BY categoria"
+    )).fetchall()
+    jefaturas = [dict(r._mapping) for r in jefaturas]
+    categorias = [dict(r._mapping) for r in categorias]
+    return render_template('comps/configuracion.html',
+                           jefaturas=jefaturas, categorias=categorias)
+
+
+# ── Jefaturas CRUD ──
+
+@comps_bp.route('/jefaturas/crear', methods=['POST'])
+@login_required
+def jefatura_crear():
+    db = _get_db()
+    usuario_id = (request.form.get('usuario_id') or '').strip()
+    nombre = (request.form.get('nombre') or '').strip()
+    area = (request.form.get('area') or '').strip().upper()
+    if not usuario_id or not nombre:
+        flash('Usuario ID y Nombre son obligatorios.', 'warning')
+        return redirect(url_for('comps.configuracion'))
+    existe = db.session.execute(text(
+        "SELECT id FROM jefaturas WHERE usuario_id = :u"), {"u": usuario_id}).fetchone()
+    if existe:
+        flash(f'Ya existe una jefatura con usuario_id {usuario_id}.', 'warning')
+        return redirect(url_for('comps.configuracion'))
+    db.session.execute(text(
+        "INSERT INTO jefaturas (usuario_id, nombre, area) VALUES (:u, :n, :a)"
+    ), {"u": usuario_id, "n": nombre, "a": area})
+    db.session.commit()
+    flash(f'Jefatura "{nombre}" creada.', 'success')
+    return redirect(url_for('comps.configuracion'))
+
+
+@comps_bp.route('/jefaturas/editar/<int:jef_id>', methods=['POST'])
+@login_required
+def jefatura_editar(jef_id):
+    db = _get_db()
+    usuario_id = (request.form.get('usuario_id') or '').strip()
+    nombre = (request.form.get('nombre') or '').strip()
+    area = (request.form.get('area') or '').strip().upper()
+    if not usuario_id or not nombre:
+        flash('Usuario ID y Nombre son obligatorios.', 'warning')
+        return redirect(url_for('comps.configuracion'))
+    db.session.execute(text(
+        "UPDATE jefaturas SET usuario_id = :u, nombre = :n, area = :a WHERE id = :id"
+    ), {"u": usuario_id, "n": nombre, "a": area, "id": jef_id})
+    db.session.commit()
+    flash('Jefatura actualizada.', 'success')
+    return redirect(url_for('comps.configuracion'))
+
+
+@comps_bp.route('/jefaturas/eliminar/<int:jef_id>', methods=['POST'])
+@login_required
+def jefatura_eliminar(jef_id):
+    db = _get_db()
+    db.session.execute(text("DELETE FROM jefaturas WHERE id = :id"), {"id": jef_id})
+    db.session.commit()
+    flash('Jefatura eliminada.', 'success')
+    return redirect(url_for('comps.configuracion'))
+
+
+# ── Categorías CRUD ──
+
+@comps_bp.route('/categorias/crear', methods=['POST'])
+@login_required
+def categoria_crear():
+    db = _get_db()
+    categoria = (request.form.get('categoria') or '').strip()
+    porcentaje_raw = (request.form.get('porcentaje') or '').strip().replace(',', '.')
+    if not categoria:
+        flash('La categoría es obligatoria.', 'warning')
+        return redirect(url_for('comps.configuracion'))
+    try:
+        porcentaje = float(porcentaje_raw) if porcentaje_raw else 0.0
+    except ValueError:
+        flash('El porcentaje debe ser un número.', 'warning')
+        return redirect(url_for('comps.configuracion'))
+    existe = db.session.execute(text(
+        "SELECT id FROM categorias_nivel WHERE categoria = :c"), {"c": categoria}).fetchone()
+    if existe:
+        flash(f'Ya existe la categoría "{categoria}".', 'warning')
+        return redirect(url_for('comps.configuracion'))
+    db.session.execute(text(
+        "INSERT INTO categorias_nivel (categoria, porcentaje) VALUES (:c, :p)"
+    ), {"c": categoria, "p": porcentaje})
+    db.session.commit()
+    flash(f'Categoría "{categoria}" creada.', 'success')
+    return redirect(url_for('comps.configuracion'))
+
+
+@comps_bp.route('/categorias/editar/<int:cat_id>', methods=['POST'])
+@login_required
+def categoria_editar(cat_id):
+    db = _get_db()
+    categoria = (request.form.get('categoria') or '').strip()
+    porcentaje_raw = (request.form.get('porcentaje') or '').strip().replace(',', '.')
+    if not categoria:
+        flash('La categoría es obligatoria.', 'warning')
+        return redirect(url_for('comps.configuracion'))
+    try:
+        porcentaje = float(porcentaje_raw) if porcentaje_raw else 0.0
+    except ValueError:
+        flash('El porcentaje debe ser un número.', 'warning')
+        return redirect(url_for('comps.configuracion'))
+    db.session.execute(text(
+        "UPDATE categorias_nivel SET categoria = :c, porcentaje = :p WHERE id = :id"
+    ), {"c": categoria, "p": porcentaje, "id": cat_id})
+    db.session.commit()
+    flash('Categoría actualizada.', 'success')
+    return redirect(url_for('comps.configuracion'))
+
+
+@comps_bp.route('/categorias/eliminar/<int:cat_id>', methods=['POST'])
+@login_required
+def categoria_eliminar(cat_id):
+    db = _get_db()
+    db.session.execute(text("DELETE FROM categorias_nivel WHERE id = :id"), {"id": cat_id})
+    db.session.commit()
+    flash('Categoría eliminada.', 'success')
+    return redirect(url_for('comps.configuracion'))
