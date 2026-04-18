@@ -975,8 +975,15 @@ def control_invitaciones_mda():
                    MAX(c.nombre_cliente) as nombre_cliente,
                    0 as coin_in,
                    COUNT(c.id) as cant_cortesias,
-                   SUM(c.micros) as monto_cortesias
+                   SUM(c.micros) as monto_cortesias,
+                   COALESCE(MAX(p.cant_premios), 0) as cant_premios,
+                   COALESCE(MAX(p.monto_premios), 0) as monto_premios
             FROM cortesias c
+            LEFT JOIN (
+                SELECT cliente_id, fecha_jornada, COUNT(*) as cant_premios,
+                       SUM(transferencia_final) as monto_premios
+                FROM premios_comps GROUP BY cliente_id, fecha_jornada
+            ) p ON c.cliente_id = p.cliente_id AND c.fecha_jornada = p.fecha_jornada
             {z_where}
             GROUP BY c.fecha_jornada, c.cliente_id
             ORDER BY c.fecha_jornada DESC, monto_cortesias DESC
@@ -1171,8 +1178,15 @@ def control_invitaciones_mdj():
                    MAX(c.nombre_cliente) as nombre_cliente,
                    0 as coin_in,
                    COUNT(c.id) as cant_cortesias,
-                   SUM(c.micros) as monto_cortesias
+                   SUM(c.micros) as monto_cortesias,
+                   COALESCE(MAX(p.cant_premios), 0) as cant_premios,
+                   COALESCE(MAX(p.monto_premios), 0) as monto_premios
             FROM cortesias c
+            LEFT JOIN (
+                SELECT cliente_id, fecha_jornada, COUNT(*) as cant_premios,
+                       SUM(transferencia_final) as monto_premios
+                FROM premios_comps GROUP BY cliente_id, fecha_jornada
+            ) p ON c.cliente_id = p.cliente_id AND c.fecha_jornada = p.fecha_jornada
             {z_where}
             GROUP BY c.fecha_jornada, c.cliente_id
             ORDER BY c.fecha_jornada DESC, monto_cortesias DESC
