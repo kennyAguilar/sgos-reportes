@@ -5,6 +5,11 @@ body {
   color: #e2e8f0;
 }
 
+/* Password input group usado en gestión de usuarios */
+.pwd-group-sm {
+  max-width: 240px;
+}
+
 /* Headings: override Bootstrap's --bs-heading-color que en modo claro es oscuro */
 h1, h2, h3, h4, h5, h6 {
   color: #e2e8f0;

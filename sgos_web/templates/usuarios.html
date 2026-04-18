@@ -38,15 +38,15 @@
     <form method="POST" action="{{ url_for('crear_usuario') }}" class="row g-3 align-items-end">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
       <div class="col-md-4">
-        <label class="form-label text-light">Usuario</label>
-        <input type="text" name="username" class="form-control" required autocomplete="off">
+        <label for="username-crear" class="form-label text-light">Usuario</label>
+        <input type="text" id="username-crear" name="username" class="form-control" required autocomplete="off">
       </div>
       <div class="col-md-4">
-        <label class="form-label text-light">Contraseña</label>
+        <label for="pwd-crear" class="form-label text-light">Contraseña</label>
         <div class="input-group">
-          <input type="password" name="password" class="form-control" required id="pwd-crear">
-          <button type="button" class="btn btn-outline-secondary" onclick="togglePwd('pwd-crear', this)" tabindex="-1">
-            <i class="bi bi-eye"></i>
+          <input type="password" name="password" class="form-control" required id="pwd-crear" aria-label="Contraseña del nuevo usuario">
+          <button type="button" class="btn btn-outline-secondary" onclick="togglePwd('pwd-crear', this)" tabindex="-1" aria-label="Mostrar u ocultar contraseña">
+            <i class="bi bi-eye" aria-hidden="true"></i>
           </button>
         </div>
       </div>
@@ -84,10 +84,11 @@
             <td>
               <form method="POST" action="{{ url_for('cambiar_password', user_id=u.id) }}" class="d-flex gap-2">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <div class="input-group input-group-sm" style="max-width:240px;">
+                <div class="input-group input-group-sm pwd-group-sm">
+                  <label for="pwd-{{ u.id }}" class="visually-hidden">Nueva contraseña para {{ u.username }}</label>
                   <input type="password" name="password" class="form-control" placeholder="Nueva contraseña" required id="pwd-{{ u.id }}">
-                  <button type="button" class="btn btn-outline-secondary" onclick="togglePwd('pwd-{{ u.id }}', this)" tabindex="-1">
-                    <i class="bi bi-eye"></i>
+                  <button type="button" class="btn btn-outline-secondary" onclick="togglePwd('pwd-{{ u.id }}', this)" tabindex="-1" aria-label="Mostrar u ocultar contraseña">
+                    <i class="bi bi-eye" aria-hidden="true"></i>
                   </button>
                 </div>
                 <button type="submit" class="btn btn-sm btn-outline-warning"><i class="bi bi-key"></i> Cambiar</button>
