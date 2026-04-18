@@ -109,9 +109,84 @@
     </div>
   </div>
 </div>
+
+<!-- Cortesías Coin-In Cero (solo cuando se filtra por jefe) -->
+{% if jefe_actual and coinin_cero_resultados %}
+<div class="card mt-4 border-danger">
+  <div class="card-body">
+    <h5 class="card-title text-danger"><i class="bi bi-exclamation-triangle"></i> Cortesías con Coin-In Cero — {{ jefe_nombre_filtrado }}</h5>
+    <div class="row g-3 mb-3">
+      <div class="col-md-6">
+        <div class="card text-center border-danger"><div class="card-body py-2">
+          <small class="text-light">Casos Detectados</small>
+          <h4 class="text-danger mb-0">{{ coinin_cero_resultados|length }}</h4>
+        </div></div>
+      </div>
+      <div class="col-md-6">
+        <div class="card text-center"><div class="card-body py-2">
+          <small class="text-light">Monto Cortesías sin soporte</small>
+          <h4 class="text-warning mb-0">${{ "{:,.0f}".format(coinin_cero_resultados|sum(attribute='monto_cortesias')) }}</h4>
+        </div></div>
+      </div>
+    </div>
+    <div class="table-responsive">
+      <table class="table table-dark table-striped table-hover table-sm" style="font-size:.85rem">
+        <thead>
+          <tr>
+            <th class="text-nowrap">Fecha</th><th>Nombre</th>
+            <th class="text-nowrap">Coin-In</th><th class="text-nowrap">Cortesías</th>
+            <th class="text-nowrap">Monto Cortesías</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for r in coinin_cero_resultados %}
+          {% set caso_key = r.cliente_id ~ '|' ~ r.jornada %}
+          {% set caso_idx = loop.index %}
+          <tr class="caso-zero-row" data-caso="{{ caso_idx }}" style="cursor:pointer" title="Click para ver productos">
+            <td class="text-nowrap"><i class="bi bi-chevron-right me-1 chevron-zero-icon"></i>{{ r.jornada }}</td>
+            <td style="max-width:250px" class="text-truncate">{{ r.nombre_cliente }}</td>
+            <td class="text-danger fw-bold">$0</td>
+            <td>{{ r.cant_cortesias }}</td>
+            <td class="text-nowrap">${{ "{:,.0f}".format(r.monto_cortesias or 0) }}</td>
+          </tr>
+          {% for prod in coinin_cero_prods.get(caso_key, []) %}
+          <tr class="sub-zero-{{ caso_idx }}" style="display:none; background:rgba(255,255,255,0.03)">
+            <td></td>
+            <td colspan="2" class="ps-4 text-info small">
+              <i class="bi bi-dot"></i> {{ prod.descripcion_cat }} — {{ prod.descripcion_prod }}
+            </td>
+            <td class="small">{{ prod.cantidad }}</td>
+            <td class="small">${{ "{:,.0f}".format(prod.monto or 0) }}</td>
+          </tr>
+          {% endfor %}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endif %}
 {% endblock %}
 
 {% block scripts %}
+{% if jefe_actual and coinin_cero_resultados %}
+<script>
+document.querySelectorAll('.caso-zero-row').forEach(function(row) {
+  row.addEventListener('click', function() {
+    var id = this.dataset.caso;
+    var subs = document.querySelectorAll('.sub-zero-' + id);
+    var chevron = this.querySelector('.chevron-zero-icon');
+    subs.forEach(function(s) {
+      s.style.display = s.style.display === 'none' ? '' : 'none';
+    });
+    if (chevron) {
+      chevron.classList.toggle('bi-chevron-right');
+      chevron.classList.toggle('bi-chevron-down');
+    }
+  });
+});
+</script>
+{% endif %}
 {% if chart_labels %}
 <script>
 new Chart(document.getElementById('chartMdj').getContext('2d'), {
