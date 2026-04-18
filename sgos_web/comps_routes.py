@@ -945,63 +945,6 @@ def control_invitaciones_mda():
     coin_srw_cc = _exec_one(f"SELECT COALESCE(SUM(coin_in), 0) as total FROM srw_jugadores {sw_cc} {'AND' if sw_cc else 'WHERE'} player_id IN ({subq_cort_mda})", {**sp_cc, **cp_cc})
     coin_in_con_cortesias = coin_srw_cc.get('total') or 0
 
-    # ── Cortesías Coin-In Cero del jefe filtrado (solo si hay filtro de jefe) ──
-    coinin_cero_resultados = []
-    coinin_cero_prods = {}
-    jefe_nombre_filtrado = ''
-    if jefe:
-        jefe_nombre_filtrado = dict(jefes_disp).get(jefe, '')
-        cw_z, cp_z = build_date_filter('c.fecha_jornada', anio, mes)
-        z_parts = []
-        z_params = {}
-        if cw_z:
-            z_parts.append(cw_z.replace('WHERE ', ''))
-            z_params.update(cp_z)
-        z_parts.append('c.usuario_id = :z_jefe_id')
-        z_params['z_jefe_id'] = jefe
-        z_parts.append("""(
-            NOT EXISTS (
-                SELECT 1 FROM srw_jugadores s
-                WHERE s.player_id = c.cliente_id AND s.gaming_date = c.fecha_jornada AND s.coin_in > 0
-            )
-            AND NOT EXISTS (
-                SELECT 1 FROM mesas_puntos m
-                WHERE m.cliente_id = c.cliente_id AND m.fecha_operacion = c.fecha_jornada AND m.coin_in_puntos > 0
-            )
-        )""")
-        z_where = 'WHERE ' + ' AND '.join(z_parts)
-        coinin_cero_resultados = _exec(f"""
-            SELECT c.fecha_jornada as jornada, c.cliente_id,
-                   MAX(c.nombre_cliente) as nombre_cliente,
-                   0 as coin_in,
-                   COUNT(c.id) as cant_cortesias,
-                   SUM(c.micros) as monto_cortesias,
-                   COALESCE(MAX(p.cant_premios), 0) as cant_premios,
-                   COALESCE(MAX(p.monto_premios), 0) as monto_premios
-            FROM cortesias c
-            LEFT JOIN (
-                SELECT cliente_id, fecha_jornada, COUNT(*) as cant_premios,
-                       SUM(transferencia_final) as monto_premios
-                FROM premios_comps GROUP BY cliente_id, fecha_jornada
-            ) p ON c.cliente_id = p.cliente_id AND c.fecha_jornada = p.fecha_jornada
-            {z_where}
-            GROUP BY c.fecha_jornada, c.cliente_id
-            ORDER BY c.fecha_jornada DESC, monto_cortesias DESC
-        """, z_params)
-        if coinin_cero_resultados:
-            z_prods = _exec(f"""
-                SELECT c.cliente_id, c.fecha_jornada,
-                       c.descripcion_cat, c.descripcion_prod,
-                       COUNT(*) as cantidad, SUM(c.micros) as monto
-                FROM cortesias c
-                {z_where}
-                GROUP BY c.cliente_id, c.fecha_jornada, c.descripcion_cat, c.descripcion_prod
-                ORDER BY c.descripcion_cat, monto DESC
-            """, z_params)
-            for r in z_prods:
-                key = f"{r['cliente_id']}|{r['fecha_jornada']}"
-                coinin_cero_prods.setdefault(key, []).append(r)
-
     return render_template('comps/control_invitaciones_mda.html',
                            resultados=all_resultados, dias_totales=dias_totales,
                            pct_primario=pct_primario, pct_categoria=pct_categoria,
@@ -1012,9 +955,6 @@ def control_invitaciones_mda():
                            total_coin_in_periodo=total_coin_in_periodo,
                            pct_cortesias_coin_in=pct_cortesias_coin_in,
                            coin_in_con_cortesias=coin_in_con_cortesias,
-                           coinin_cero_resultados=coinin_cero_resultados,
-                           coinin_cero_prods=coinin_cero_prods,
-                           jefe_nombre_filtrado=jefe_nombre_filtrado,
                            anios=anios, meses_disp=meses_disp,
                            jefes_disp=jefes_disp,
                            anio_actual=anio, mes_actual=mes, jefe_actual=jefe)
@@ -1148,63 +1088,6 @@ def control_invitaciones_mdj():
     coin_mesas_cc = _exec_one(f"SELECT COALESCE(SUM(coin_in_puntos), 0) as total FROM mesas_puntos {mw_cc} {'AND' if mw_cc else 'WHERE'} cliente_id IN ({subq_cort_mdj})", {**mp_cc, **cp_cc})
     coin_in_con_cortesias = coin_mesas_cc.get('total') or 0
 
-    # ── Cortesías Coin-In Cero del jefe filtrado (solo si hay filtro de jefe) ──
-    coinin_cero_resultados = []
-    coinin_cero_prods = {}
-    jefe_nombre_filtrado = ''
-    if jefe:
-        jefe_nombre_filtrado = dict(jefes_disp).get(jefe, '')
-        cw_z, cp_z = build_date_filter('c.fecha_jornada', anio, mes)
-        z_parts = []
-        z_params = {}
-        if cw_z:
-            z_parts.append(cw_z.replace('WHERE ', ''))
-            z_params.update(cp_z)
-        z_parts.append('c.usuario_id = :z_jefe_id')
-        z_params['z_jefe_id'] = jefe
-        z_parts.append("""(
-            NOT EXISTS (
-                SELECT 1 FROM srw_jugadores s
-                WHERE s.player_id = c.cliente_id AND s.gaming_date = c.fecha_jornada AND s.coin_in > 0
-            )
-            AND NOT EXISTS (
-                SELECT 1 FROM mesas_puntos m
-                WHERE m.cliente_id = c.cliente_id AND m.fecha_operacion = c.fecha_jornada AND m.coin_in_puntos > 0
-            )
-        )""")
-        z_where = 'WHERE ' + ' AND '.join(z_parts)
-        coinin_cero_resultados = _exec(f"""
-            SELECT c.fecha_jornada as jornada, c.cliente_id,
-                   MAX(c.nombre_cliente) as nombre_cliente,
-                   0 as coin_in,
-                   COUNT(c.id) as cant_cortesias,
-                   SUM(c.micros) as monto_cortesias,
-                   COALESCE(MAX(p.cant_premios), 0) as cant_premios,
-                   COALESCE(MAX(p.monto_premios), 0) as monto_premios
-            FROM cortesias c
-            LEFT JOIN (
-                SELECT cliente_id, fecha_jornada, COUNT(*) as cant_premios,
-                       SUM(transferencia_final) as monto_premios
-                FROM premios_comps GROUP BY cliente_id, fecha_jornada
-            ) p ON c.cliente_id = p.cliente_id AND c.fecha_jornada = p.fecha_jornada
-            {z_where}
-            GROUP BY c.fecha_jornada, c.cliente_id
-            ORDER BY c.fecha_jornada DESC, monto_cortesias DESC
-        """, z_params)
-        if coinin_cero_resultados:
-            z_prods = _exec(f"""
-                SELECT c.cliente_id, c.fecha_jornada,
-                       c.descripcion_cat, c.descripcion_prod,
-                       COUNT(*) as cantidad, SUM(c.micros) as monto
-                FROM cortesias c
-                {z_where}
-                GROUP BY c.cliente_id, c.fecha_jornada, c.descripcion_cat, c.descripcion_prod
-                ORDER BY c.descripcion_cat, monto DESC
-            """, z_params)
-            for r in z_prods:
-                key = f"{r['cliente_id']}|{r['fecha_jornada']}"
-                coinin_cero_prods.setdefault(key, []).append(r)
-
     return render_template('comps/control_invitaciones_mdj.html',
                            resultados=all_resultados_mdj, dias_totales=dias_totales,
                            pct_primario=pct_primario, pct_categoria=pct_categoria,
@@ -1215,9 +1098,6 @@ def control_invitaciones_mdj():
                            total_coin_in_periodo=total_coin_in_periodo,
                            pct_cortesias_coin_in=pct_cortesias_coin_in,
                            coin_in_con_cortesias=coin_in_con_cortesias,
-                           coinin_cero_resultados=coinin_cero_resultados,
-                           coinin_cero_prods=coinin_cero_prods,
-                           jefe_nombre_filtrado=jefe_nombre_filtrado,
                            anios=anios, meses_disp=meses_disp,
                            jefes_disp=jefes_disp,
                            anio_actual=anio, mes_actual=mes, jefe_actual=jefe)
