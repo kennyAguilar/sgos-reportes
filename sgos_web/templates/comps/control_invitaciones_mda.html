@@ -92,8 +92,13 @@
         </thead>
         <tbody>
           {% for r in resultados %}
+          {% if jefe_actual and prods_por_cliente %}
+          <tr class="caso-row {{ 'table-danger' if r.saldo < 0 else '' }}" data-caso="{{ loop.index }}" style="cursor:pointer" title="Click para ver productos">
+            <td><i class="bi bi-chevron-right me-1 chevron-icon"></i>{{ r.nombre }}</td>
+          {% else %}
           <tr class="{{ 'table-danger' if r.saldo < 0 else '' }}">
             <td>{{ r.nombre }}</td>
+          {% endif %}
             <td><span class="badge bg-info">{{ r.nivel }}</span></td>
             <td>{{ r.dias_asistidos }}</td>
             <td>{{ r.pct_asistencia }}%</td>
@@ -103,6 +108,20 @@
             <td>${{ "{:,.0f}".format(r.invitacion_mensual or 0) }}</td>
             <td class="{{ 'text-danger fw-bold' if r.saldo < 0 else 'text-success' }}">${{ "{:,.0f}".format(r.saldo) }}</td>
           </tr>
+          {% if jefe_actual and prods_por_cliente %}
+          {% for prod in prods_por_cliente.get(r.player_id|string, []) %}
+          <tr class="sub-{{ loop.parent.loop.index }}" style="display:none; background:rgba(255,255,255,0.03)">
+            <td colspan="2" class="ps-4 text-info small">
+              <i class="bi bi-dot"></i> {{ prod.descripcion_cat }} — {{ prod.descripcion_prod }}
+            </td>
+            <td></td><td></td>
+            <td></td>
+            <td class="small">{{ prod.cantidad }}</td>
+            <td class="small">${{ "{:,.0f}".format(prod.monto or 0) }}</td>
+            <td colspan="2"></td>
+          </tr>
+          {% endfor %}
+          {% endif %}
           {% endfor %}
         </tbody>
       </table>
@@ -136,4 +155,16 @@ new Chart(document.getElementById('chartMda').getContext('2d'), {
 });
 </script>
 {% endif %}
+<script>
+document.querySelectorAll('.caso-row').forEach(function(row) {
+  row.addEventListener('click', function() {
+    var id = this.dataset.caso;
+    var subs = document.querySelectorAll('.sub-' + id);
+    var chevron = this.querySelector('.chevron-icon');
+    var open = subs.length > 0 && subs[0].style.display !== 'none';
+    subs.forEach(function(s) { s.style.display = open ? 'none' : ''; });
+    if (chevron) chevron.className = 'bi me-1 chevron-icon ' + (open ? 'bi-chevron-right' : 'bi-chevron-down');
+  });
+});
+</script>
 {% endblock %}

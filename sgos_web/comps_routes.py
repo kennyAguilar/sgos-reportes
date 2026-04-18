@@ -569,6 +569,7 @@ def _calc_invitaciones(jugadores_raw, pct_primario, pct_categoria, dias_totales)
         dias = j.get('dias_asistidos') or 0
         pct_asistencia = round(dias * 100.0 / dias_totales, 1) if dias_totales > 0 else 0
         resultados.append({
+            'player_id': j.get('player_id'),
             'nombre': j.get('nombre'),
             'nivel': nivel,
             'dias_asistidos': dias,
@@ -945,6 +946,20 @@ def control_invitaciones_mda():
     coin_srw_cc = _exec_one(f"SELECT COALESCE(SUM(coin_in), 0) as total FROM srw_jugadores {sw_cc} {'AND' if sw_cc else 'WHERE'} player_id IN ({subq_cort_mda})", {**sp_cc, **cp_cc})
     coin_in_con_cortesias = coin_srw_cc.get('total') or 0
 
+    # Detalle de productos por cliente (solo cuando se filtra por jefe)
+    prods_por_cliente = {}
+    if jefe:
+        prods_raw = _exec(f"""
+            SELECT c.cliente_id, c.descripcion_cat, c.descripcion_prod,
+                   COUNT(*) as cantidad, SUM(c.micros) as monto
+            FROM cortesias c
+            {cw_inner}
+            GROUP BY c.cliente_id, c.descripcion_cat, c.descripcion_prod
+            ORDER BY c.descripcion_cat, monto DESC
+        """, {**cparam, **jefe_p})
+        for r in prods_raw:
+            prods_por_cliente.setdefault(str(r['cliente_id']), []).append(r)
+
     return render_template('comps/control_invitaciones_mda.html',
                            resultados=all_resultados, dias_totales=dias_totales,
                            pct_primario=pct_primario, pct_categoria=pct_categoria,
@@ -955,6 +970,7 @@ def control_invitaciones_mda():
                            total_coin_in_periodo=total_coin_in_periodo,
                            pct_cortesias_coin_in=pct_cortesias_coin_in,
                            coin_in_con_cortesias=coin_in_con_cortesias,
+                           prods_por_cliente=prods_por_cliente,
                            anios=anios, meses_disp=meses_disp,
                            jefes_disp=jefes_disp,
                            anio_actual=anio, mes_actual=mes, jefe_actual=jefe)
@@ -1088,6 +1104,20 @@ def control_invitaciones_mdj():
     coin_mesas_cc = _exec_one(f"SELECT COALESCE(SUM(coin_in_puntos), 0) as total FROM mesas_puntos {mw_cc} {'AND' if mw_cc else 'WHERE'} cliente_id IN ({subq_cort_mdj})", {**mp_cc, **cp_cc})
     coin_in_con_cortesias = coin_mesas_cc.get('total') or 0
 
+    # Detalle de productos por cliente (solo cuando se filtra por jefe)
+    prods_por_cliente = {}
+    if jefe:
+        prods_raw = _exec(f"""
+            SELECT c.cliente_id, c.descripcion_cat, c.descripcion_prod,
+                   COUNT(*) as cantidad, SUM(c.micros) as monto
+            FROM cortesias c
+            {cw_inner}
+            GROUP BY c.cliente_id, c.descripcion_cat, c.descripcion_prod
+            ORDER BY c.descripcion_cat, monto DESC
+        """, {**cparam, **jefe_p})
+        for r in prods_raw:
+            prods_por_cliente.setdefault(str(r['cliente_id']), []).append(r)
+
     return render_template('comps/control_invitaciones_mdj.html',
                            resultados=all_resultados_mdj, dias_totales=dias_totales,
                            pct_primario=pct_primario, pct_categoria=pct_categoria,
@@ -1098,6 +1128,7 @@ def control_invitaciones_mdj():
                            total_coin_in_periodo=total_coin_in_periodo,
                            pct_cortesias_coin_in=pct_cortesias_coin_in,
                            coin_in_con_cortesias=coin_in_con_cortesias,
+                           prods_por_cliente=prods_por_cliente,
                            anios=anios, meses_disp=meses_disp,
                            jefes_disp=jefes_disp,
                            anio_actual=anio, mes_actual=mes, jefe_actual=jefe)
