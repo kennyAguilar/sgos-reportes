@@ -1145,7 +1145,7 @@ def control_invitaciones_mkt():
     anios, meses_disp = get_anios_meses()
 
     jefes_disp = [(r['usuario_id'], r['nombre']) for r in _exec(
-        "SELECT usuario_id, nombre FROM jefaturas WHERE area = 'Marketing' ORDER BY nombre")]
+        "SELECT usuario_id, nombre FROM jefaturas WHERE area = 'MRK' ORDER BY nombre")]
 
     jefe_filter_sql = ""
     jefe_p = {}
@@ -1153,7 +1153,7 @@ def control_invitaciones_mkt():
         jefe_filter_sql = " AND c.usuario_id = :jefe_id"
         jefe_p = {"jefe_id": jefe}
     else:
-        jefe_filter_sql = " AND c.usuario_id IN (SELECT usuario_id FROM jefaturas WHERE area = 'Marketing')"
+        jefe_filter_sql = " AND c.usuario_id IN (SELECT usuario_id FROM jefaturas WHERE area = 'MRK')"
 
     sw, sp = build_date_filter('s.gaming_date', anio, mes)
     cw, cparam = build_date_filter('c.fecha_jornada', anio, mes)
@@ -1295,7 +1295,7 @@ def control_invitaciones_mkt():
     # Gráfico de torta Marketing
     cw_chart, cp_chart = build_date_filter('c.fecha_jornada', anio, mes)
     chart_params = dict(cp_chart)
-    extra_chart = " AND j.area = 'Marketing'" if cw_chart else "WHERE j.area = 'Marketing'"
+    extra_chart = " AND j.area = 'MRK'" if cw_chart else "WHERE j.area = 'MRK'"
     chart_rows = _exec(f"""
         SELECT j.nombre as etiqueta, COUNT(*) as cantidad
         FROM cortesias c
