@@ -103,12 +103,12 @@
       {% if years %}
       <div class="accordion-item">
         <h2 class="accordion-header">
-          <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#filtro-fecha">
+          <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#filtro-fecha">
             <i class="bi bi-calendar-date me-10px"></i>
             Filtrar por Fecha
           </button>
         </h2>
-        <div id="filtro-fecha" class="accordion-collapse collapse show" data-bs-parent="#acc">
+        <div id="filtro-fecha" class="accordion-collapse collapse show">
           <div class="accordion-body">
             <form method="post" id="form-fecha">
                 <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
@@ -157,12 +157,12 @@
       {% if asistentes_disponibles %}
       <div class="accordion-item">
         <h2 class="accordion-header">
-          <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#filtro-asistentes">
+          <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#filtro-asistentes">
             <i class="bi bi-funnel me-10px"></i>
             Filtrar por Asistentes
           </button>
         </h2>
-        <div id="filtro-asistentes" class="accordion-collapse collapse" data-bs-parent="#acc">
+        <div id="filtro-asistentes" class="accordion-collapse collapse show">
           <div class="accordion-body">
             <form method="post">
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
