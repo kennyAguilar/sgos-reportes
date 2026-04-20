@@ -2,6 +2,7 @@ import os
 import gc
 import time
 import uuid
+from datetime import datetime
 from io import BytesIO
 import pandas as pd
 from dotenv import load_dotenv
@@ -35,9 +36,9 @@ def desktop_save_response(output, filename):
                      mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 try:
-    from sgos_web.engine import procesar_sgos, exportar_excel_bytes, obtener_asistentes, guardar_datos_db, generar_reportes, _cargar_df
+    from sgos_web.engine import procesar_sgos, exportar_excel_bytes, obtener_asistentes, guardar_datos_db, generar_reportes, _cargar_df, generar_kpis
 except ImportError:
-    from engine import procesar_sgos, exportar_excel_bytes, obtener_asistentes, guardar_datos_db, generar_reportes, _cargar_df
+    from engine import procesar_sgos, exportar_excel_bytes, obtener_asistentes, guardar_datos_db, generar_reportes, _cargar_df, generar_kpis
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY") or os.urandom(32).hex()
@@ -112,7 +113,7 @@ def load_user(user_id):
 
 class Operacion(db.Model):
     __tablename__ = 'operaciones'
-    
+
     id = db.Column(db.Integer, primary_key=True)
     fecha = db.Column(db.DateTime, nullable=False)
     jornada = db.Column(db.DateTime, nullable=False)
@@ -128,6 +129,13 @@ class Operacion(db.Model):
     # Campos calculados útiles para consultas rápidas
     mes = db.Column(db.String(7))  # YYYY-MM
     hora = db.Column(db.Integer)
+
+    __table_args__ = (
+        db.Index('ix_operaciones_mes', 'mes'),
+        db.Index('ix_operaciones_jornada', 'jornada'),
+        db.Index('ix_operaciones_attendant', 'attendant'),
+        db.Index('ix_operaciones_mes_attendant', 'mes', 'attendant'),
+    )
 
     def __repr__(self):
         return f"<Operacion {self.id} - {self.attendant} - {self.monto}>"
@@ -150,6 +158,13 @@ class Premio(db.Model):
     # Campos calculados
     mes = db.Column(db.String(7))
     hora = db.Column(db.Integer)
+
+    __table_args__ = (
+        db.Index('ix_premios_mes', 'mes'),
+        db.Index('ix_premios_jornada', 'jornada'),
+        db.Index('ix_premios_attendant', 'attendant'),
+        db.Index('ix_premios_mes_attendant', 'mes', 'attendant'),
+    )
 
     def __repr__(self):
         return f"<Premio {self.id} - {self.attendant} - {self.monto}>"
@@ -217,11 +232,34 @@ class CargaLog(db.Model):
     archivo = db.Column(db.String(200))
     filas = db.Column(db.Integer)
     fecha_carga = db.Column(db.String(50))
+    file_hash = db.Column(db.String(128), index=True)
+    modo = db.Column(db.String(20), default='replace')
+    usuario = db.Column(db.String(100))
+    descartados = db.Column(db.Integer, default=0)
+    meses = db.Column(db.String(200))
 
 # Crear tablas si no existen (solo para desarrollo local/inicial)
 with app.app_context():
     db.create_all()
-    
+
+    # Auto-migración ligera: añade columnas nuevas a carga_log si faltan (SQLite / Postgres)
+    try:
+        with db.engine.begin() as _conn:
+            _existentes = {c["name"] for c in db.inspect(db.engine).get_columns("carga_log")}
+            _nuevas = {
+                "file_hash": "VARCHAR(128)",
+                "modo": "VARCHAR(20)",
+                "usuario": "VARCHAR(100)",
+                "descartados": "INTEGER DEFAULT 0",
+                "meses": "VARCHAR(200)",
+            }
+            for _col, _tipo in _nuevas.items():
+                if _col not in _existentes:
+                    _conn.exec_driver_sql(f"ALTER TABLE carga_log ADD COLUMN {_col} {_tipo}")
+                    print(f"[migración] carga_log: columna '{_col}' añadida")
+    except Exception as _mig_err:
+        print(f"[migración] aviso: {_mig_err}")
+
     # Crear usuario admin por defecto si no existe
     if not User.query.filter_by(username="admin").first():
         admin = User(username="admin")
@@ -450,11 +488,95 @@ def index():
 
         cleanup_old_uploads(app.config["UPLOAD_FOLDER"])
 
+        # Modo de carga: 'replace' (default) borra el mes y recarga; 'append' solo inserta
+        modo = request.form.get("modo_carga", "replace")
+        if modo not in ("replace", "append"):
+            modo = "replace"
+
         # --- Guardar en Base de Datos ---
         try:
-            total_guardados, tipo_archivo, _ = guardar_datos_db(path, db, Operacion, Premio)
+            resultado = guardar_datos_db(path, db, Operacion, Premio, modo=modo)
+
+            # Validación: faltan columnas requeridas
+            if resultado.get("columnas_faltantes"):
+                flash(
+                    f"❌ Archivo inválido. Faltan columnas: {', '.join(resultado['columnas_faltantes'])}",
+                    "danger",
+                )
+                return redirect(url_for("index"))
+
+            # Error genérico del engine
+            if resultado.get("error") and resultado["guardados"] == 0:
+                flash(f"⚠️ {resultado['error']}", "warning")
+                return redirect(url_for("index"))
+
+            # Detectar duplicado por hash
+            file_hash = resultado.get("file_hash")
+            duplicado = None
+            if file_hash:
+                duplicado = CargaLog.query.filter_by(file_hash=file_hash).first()
+
+            # Registrar en log de cargas
+            desc = resultado["descartados"]
+            total_descartados = desc["fecha"] + desc["attendant"] + desc["hora"]
+            try:
+                log = CargaLog(
+                    tabla=resultado["tipo"].lower(),
+                    archivo=filename,
+                    filas=resultado["guardados"],
+                    fecha_carga=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                    file_hash=file_hash,
+                    modo=modo,
+                    usuario=current_user.username if current_user.is_authenticated else None,
+                    descartados=total_descartados,
+                    meses=",".join(resultado.get("meses", [])),
+                )
+                db.session.add(log)
+                db.session.commit()
+            except Exception as log_err:
+                app.logger.warning(f"No se pudo registrar CargaLog: {log_err}")
+                db.session.rollback()
+
             gc.collect()
-            flash(f"¡Éxito! Se guardaron {total_guardados} registros de tipo {tipo_archivo} en la base de datos.", "success")
+
+            # Mensaje principal
+            flash(
+                f"✅ {resultado['guardados']} registros {resultado['tipo']} guardados "
+                f"({'reemplazo' if modo == 'replace' else 'acumulativo'}) · "
+                f"meses: {', '.join(resultado.get('meses', []))}",
+                "success",
+            )
+
+            # Reporte de descartes (si hay)
+            if total_descartados > 0:
+                detalles = []
+                if desc["fecha"]:
+                    detalles.append(f"{desc['fecha']} sin fecha/jornada")
+                if desc["attendant"]:
+                    detalles.append(f"{desc['attendant']} sin attendant")
+                if desc["hora"]:
+                    detalles.append(f"{desc['hora']} fuera de jornada (09 h)")
+                flash(
+                    f"ℹ️ {total_descartados} filas descartadas de {resultado['total_leido']} leídas — "
+                    + "; ".join(detalles),
+                    "info",
+                )
+
+            # Aviso de montos negativos
+            if desc["monto_neg"] > 0:
+                flash(
+                    f"⚠️ Se detectaron {desc['monto_neg']} registros con monto negativo. Revisa en el histórico.",
+                    "warning",
+                )
+
+            # Aviso de duplicado
+            if duplicado and duplicado.filas > 0:
+                flash(
+                    f"ℹ️ Este archivo ya había sido cargado el {duplicado.fecha_carga} "
+                    f"({duplicado.filas} filas). Los datos se {'reemplazaron' if modo == 'replace' else 'acumularon'} igualmente.",
+                    "info",
+                )
+
         except Exception as e:
             app.logger.error(f"Error al guardar en base de datos: {e}")
             flash("Error al guardar en base de datos. Contacta al administrador.", "danger")
@@ -583,6 +705,28 @@ def get_premios_dataframe(year=None, month=None):
     return df
 
 
+def _get_df_mes_anterior(get_df_fn, year: str, month: str, asistentes_seleccionados=None):
+    """Devuelve el DataFrame del mes inmediatamente anterior al (year, month).
+    Si year o month son 'all'/None retorna None (no hay punto de comparación claro).
+    """
+    if not year or year == "all" or not month or month == "all":
+        return None
+    try:
+        y, m = int(year), int(month)
+        if m == 1:
+            y_prev, m_prev = y - 1, 12
+        else:
+            y_prev, m_prev = y, m - 1
+        df_prev = get_df_fn(str(y_prev), f"{m_prev:02d}")
+        if df_prev is None or df_prev.empty:
+            return None
+        if asistentes_seleccionados:
+            df_prev = df_prev[df_prev["Attendant"].isin(asistentes_seleccionados)]
+        return df_prev
+    except Exception:
+        return None
+
+
 @app.route("/dashboard_db", methods=["GET", "POST"])
 @login_required
 def dashboard_db():
@@ -618,11 +762,13 @@ def dashboard_db():
         flash("No hay datos para el periodo seleccionado.", "info")
 
     asistentes_sel = session.get("asistentes_sel_db", [])
-    # Si no hay selección guardada, o la lista de disponibles cambió y la selección ya no es válida...
-    # Por simplicidad: si hay selección guardada, la usamos. Si no, todos.
     asistentes_seleccionados = asistentes_sel or asistentes_disponibles
 
+    kpis = None
     if not df.empty:
+        df_filtrado = df[df["Attendant"].isin(asistentes_seleccionados)] if asistentes_seleccionados else df
+        df_prev = _get_df_mes_anterior(get_db_dataframe, selected_year, selected_month, asistentes_seleccionados)
+        kpis = generar_kpis(df_filtrado, df_prev)
         tablas = generar_reportes(df, asistentes_seleccionados)
     else:
         tablas = {}
@@ -634,6 +780,8 @@ def dashboard_db():
         asistentes_disponibles=asistentes_disponibles,
         asistentes_seleccionados=asistentes_seleccionados,
         titulo_dashboard="Histórico Getnet",
+        tipo_modulo="GETNET",
+        kpis=kpis,
         years=years,
         selected_year=selected_year,
         selected_month=selected_month
@@ -669,7 +817,11 @@ def dashboard_premios():
     asistentes_sel = session.get("asistentes_sel_premios", [])
     asistentes_seleccionados = asistentes_sel or asistentes_disponibles
 
+    kpis = None
     if not df.empty:
+        df_filtrado = df[df["Attendant"].isin(asistentes_seleccionados)] if asistentes_seleccionados else df
+        df_prev = _get_df_mes_anterior(get_premios_dataframe, selected_year, selected_month, asistentes_seleccionados)
+        kpis = generar_kpis(df_filtrado, df_prev)
         tablas = generar_reportes(df, asistentes_seleccionados)
     else:
         tablas = {}
@@ -681,6 +833,8 @@ def dashboard_premios():
         asistentes_disponibles=asistentes_disponibles,
         asistentes_seleccionados=asistentes_seleccionados,
         titulo_dashboard="Histórico Premios",
+        tipo_modulo="PREMIOS",
+        kpis=kpis,
         years=years,
         selected_year=selected_year,
         selected_month=selected_month

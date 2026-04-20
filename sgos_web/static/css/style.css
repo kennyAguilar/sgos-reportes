@@ -799,6 +799,75 @@ body.login-page {
 .module-card p { color: var(--text-secondary); margin: 0; }
 
 /* ==========================================================================
+   KPI cards (dashboard header)
+   ========================================================================== */
+
+.kpi-row { margin-top: var(--s-4); }
+
+.kpi-card {
+  background: var(--surface-1);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--s-4) var(--s-5);
+  height: 100%;
+  position: relative;
+  overflow: hidden;
+  transition: border-color var(--t-fast), transform var(--t-fast);
+}
+.kpi-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, var(--gold-soft) 0%, transparent 45%);
+  opacity: 0;
+  transition: opacity var(--t-fast);
+  pointer-events: none;
+}
+.kpi-card:hover { border-color: var(--gold); transform: translateY(-2px); }
+.kpi-card:hover::before { opacity: 1; }
+
+.kpi-label {
+  font-size: .75rem;
+  font-weight: 600;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--text-secondary);
+  margin-bottom: var(--s-2);
+  display: flex; align-items: center; gap: 6px;
+}
+.kpi-label i { color: var(--gold); }
+
+.kpi-value {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+  margin-bottom: 4px;
+}
+.kpi-value.kpi-name {
+  font-size: 1.05rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.kpi-delta {
+  font-size: .82rem;
+  font-weight: 500;
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+.kpi-delta.up      { color: var(--emerald); background: rgba(16, 185, 129, 0.12); }
+.kpi-delta.down    { color: var(--ruby);    background: rgba(220, 38, 38, 0.12); }
+.kpi-delta.neutral { color: var(--text-muted); background: transparent; padding-left: 0; }
+
+@media (max-width: 767px) {
+  .kpi-value { font-size: 1.35rem; }
+}
+
+/* ==========================================================================
    Utilities / helpers
    ========================================================================== */
 

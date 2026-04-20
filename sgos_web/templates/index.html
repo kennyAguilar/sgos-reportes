@@ -24,6 +24,24 @@
           <label class="form-label"><i class="bi bi-file-earmark-excel"></i> Archivo Excel</label>
           <input class="form-control mb-4" type="file" name="file" accept=".xlsx,.xls" required aria-label="Seleccionar archivo Excel">
 
+          <div class="mb-4">
+            <label class="form-label d-block mb-2"><i class="bi bi-database-gear"></i> Modo de carga</label>
+            <div class="btn-group w-100" role="group" aria-label="Modo de carga">
+              <input type="radio" class="btn-check" name="modo_carga" id="modo_replace" value="replace" checked>
+              <label class="btn btn-outline-secondary" for="modo_replace">
+                <i class="bi bi-arrow-repeat"></i> Reemplazar mes
+              </label>
+              <input type="radio" class="btn-check" name="modo_carga" id="modo_append" value="append">
+              <label class="btn btn-outline-secondary" for="modo_append">
+                <i class="bi bi-plus-lg"></i> Solo acumular
+              </label>
+            </div>
+            <small class="text-secondary d-block mt-2">
+              <strong>Reemplazar</strong>: borra los datos previos del mes y los recarga (recomendado).
+              <strong>Acumular</strong>: solo inserta, sin borrar (útil para cargas parciales).
+            </small>
+          </div>
+
           <button type="submit" class="btn btn-primary w-100 py-3">
             <i class="bi bi-rocket-takeoff"></i> Procesar y Guardar
           </button>

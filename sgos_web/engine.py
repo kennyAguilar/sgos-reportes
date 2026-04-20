@@ -1,3 +1,4 @@
+import hashlib
 import pandas as pd
 from io import BytesIO
 from openpyxl.utils import get_column_letter
@@ -8,10 +9,23 @@ HORAS_VALIDAS = set(ORDEN_HORAS)
 COLUMNAS_CLAVE_STD = {"Jornada", "Fecha", "Monto"}
 COLUMNAS_CLAVE_PREMIOS = {"Monto Transferido", "Slot Attendant", "Transferencia Final"}
 
+# Columnas requeridas por tipo para validación estricta previa a carga
+COLUMNAS_REQUERIDAS_GETNET = {"Fecha", "Jornada", "Monto", "Slot Attendant"}
+COLUMNAS_REQUERIDAS_PREMIOS = {"Slot Attendant", "Transferencia Final"}
+
 MESES_ES = {
     1: "Enero", 2: "Febrero", 3: "Marzo", 4: "Abril", 5: "Mayo", 6: "Junio",
     7: "Julio", 8: "Agosto", 9: "Septiembre", 10: "Octubre", 11: "Noviembre", 12: "Diciembre"
 }
+
+
+def _hash_archivo(path: str, algo: str = "sha256") -> str:
+    """Calcula hash del archivo para detección de duplicados."""
+    h = hashlib.new(algo)
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(65536), b""):
+            h.update(chunk)
+    return h.hexdigest()
 
 def _formatear_periodo(periodo_str: str) -> str:
     # Espera formato "YYYY-MM"
@@ -48,7 +62,16 @@ def _detectar_fila_header(path_xlsx: str, sheet_name: str):
             return i
     return 0  # fallback
 
-def _cargar_df(path_xlsx: str, sheet_name: str | None = None) -> pd.DataFrame:
+def _cargar_df(path_xlsx: str, sheet_name: str | None = None, collect_stats: bool = False):
+    """
+    Carga y limpia un Excel de Getnet o Premios.
+    Si collect_stats=True retorna (df, info) donde info es dict con:
+      - total_leido: filas crudas del Excel (tras header)
+      - descartados_fecha, descartados_attendant, descartados_hora, descartados_monto_neg
+      - tipo: 'GETNET' o 'PREMIOS'
+      - columnas_faltantes: set de requeridas ausentes
+    Si collect_stats=False retorna solo df (compat legacy).
+    """
     # Si no pasan hoja, usa la primera
     if sheet_name is None:
         sheet_name = pd.ExcelFile(path_xlsx, engine="openpyxl").sheet_names[0]
@@ -57,17 +80,28 @@ def _cargar_df(path_xlsx: str, sheet_name: str | None = None) -> pd.DataFrame:
 
     df = pd.read_excel(path_xlsx, sheet_name=sheet_name, engine="openpyxl", header=header_row)
 
+    info = {
+        "total_leido": len(df),
+        "descartados_fecha": 0,
+        "descartados_attendant": 0,
+        "descartados_hora": 0,
+        "descartados_monto_neg": 0,
+        "tipo": "GETNET",
+        "columnas_faltantes": set(),
+    }
+
     # --- Lógica para PREMIOS ---
     if "Transferencia Final" in df.columns and "Slot Attendant" in df.columns:
+        info["tipo"] = "PREMIOS"
+        info["columnas_faltantes"] = COLUMNAS_REQUERIDAS_PREMIOS - set(df.columns)
+
         # Si no existe columna 'Fecha' explícita, asumimos la primera columna (A)
         if "Fecha" not in df.columns:
             df.rename(columns={df.columns[0]: "Fecha"}, inplace=True)
-        
+
         # Si no existe 'Jornada', la calculamos (Fecha - 10h para ajustar día operativo)
         if "Jornada" not in df.columns:
-            # Convertimos temporalmente para calcular
             fechas_dt = pd.to_datetime(df["Fecha"], dayfirst=True, errors='coerce')
-            # Asumimos inicio de jornada a las 10:00 AM (restamos 10h)
             df["Jornada"] = (fechas_dt - pd.Timedelta(hours=10)).dt.normalize()
 
         df = df.rename(columns={
@@ -77,6 +111,8 @@ def _cargar_df(path_xlsx: str, sheet_name: str | None = None) -> pd.DataFrame:
         })
         df["Tipo"] = "PREMIOS"
     else:
+        info["tipo"] = "GETNET"
+        info["columnas_faltantes"] = COLUMNAS_REQUERIDAS_GETNET - set(df.columns)
         df["Tipo"] = "GETNET"
     # ---------------------------
 
@@ -93,30 +129,92 @@ def _cargar_df(path_xlsx: str, sheet_name: str | None = None) -> pd.DataFrame:
     df["Jornada"] = pd.to_datetime(df.get("Jornada"), errors="coerce", dayfirst=True, format="mixed")
     df["Monto"] = pd.to_numeric(df.get("Monto"), errors="coerce").fillna(0)
 
+    # Contar descartes ANTES de eliminar (para trazabilidad)
+    mask_fecha_nula = df["Fecha"].isna() | df["Jornada"].isna()
+    info["descartados_fecha"] = int(mask_fecha_nula.sum())
+
+    mask_attendant_nulo = df["Attendant"].isna() | (df["Attendant"].astype(str).str.strip() == "")
+    info["descartados_attendant"] = int((mask_attendant_nulo & ~mask_fecha_nula).sum())
+
     df = df.dropna(subset=["Fecha", "Jornada", "Attendant"]).copy()
+    # Descartar attendant vacío como string
+    df = df[df["Attendant"].astype(str).str.strip() != ""].copy()
 
     df["JornadaDia"] = df["Jornada"].dt.normalize()
     df["Hora"] = df["Fecha"].dt.hour
 
     # Excluir 09 y cualquier otra fuera de jornada
+    antes_hora = len(df)
     df = df[df["Hora"].isin(HORAS_VALIDAS)].copy()
+    info["descartados_hora"] = antes_hora - len(df)
+
+    # Detectar montos negativos (no se descartan, solo se reportan para auditoría)
+    info["descartados_monto_neg"] = int((df["Monto"] < 0).sum())
 
     df["Mes"] = df["JornadaDia"].dt.to_period("M").astype(str)
+
+    if collect_stats:
+        return df, info
     return df
 
-def guardar_datos_db(path_xlsx: str, db, OperacionModel, PremioModel, sheet_name: str | None = None):
+def guardar_datos_db(path_xlsx: str, db, OperacionModel, PremioModel,
+                     sheet_name: str | None = None, modo: str = "replace"):
     """
-    Lee el Excel, detecta si es Getnet o Premios, y guarda en la tabla correspondiente.
-    Retorna (cantidad_registros, tipo_archivo, lista_asistentes).
+    Lee el Excel, valida esquema, detecta tipo (Getnet/Premios) y guarda en la tabla correspondiente.
+
+    Args:
+        modo: 'replace' (default, borra el mes y recarga) o 'append' (solo inserta, no borra).
+
+    Retorna dict con:
+        guardados, tipo, asistentes, meses, total_leido, descartados (dict),
+        columnas_faltantes (list), file_hash, modo
     """
-    df = _cargar_df(path_xlsx, sheet_name=sheet_name)
-    
+    df, info = _cargar_df(path_xlsx, sheet_name=sheet_name, collect_stats=True)
+
+    file_hash = _hash_archivo(path_xlsx)
+
+    # Validación estricta de esquema
+    if info["columnas_faltantes"]:
+        return {
+            "guardados": 0,
+            "tipo": info["tipo"],
+            "asistentes": [],
+            "meses": [],
+            "total_leido": info["total_leido"],
+            "descartados": {
+                "fecha": info["descartados_fecha"],
+                "attendant": info["descartados_attendant"],
+                "hora": info["descartados_hora"],
+                "monto_neg": info["descartados_monto_neg"],
+            },
+            "columnas_faltantes": sorted(info["columnas_faltantes"]),
+            "file_hash": file_hash,
+            "modo": modo,
+            "error": f"Faltan columnas requeridas: {', '.join(sorted(info['columnas_faltantes']))}",
+        }
+
     if df.empty:
-        return 0, "No data", []
+        return {
+            "guardados": 0,
+            "tipo": info["tipo"],
+            "asistentes": [],
+            "meses": [],
+            "total_leido": info["total_leido"],
+            "descartados": {
+                "fecha": info["descartados_fecha"],
+                "attendant": info["descartados_attendant"],
+                "hora": info["descartados_hora"],
+                "monto_neg": info["descartados_monto_neg"],
+            },
+            "columnas_faltantes": [],
+            "file_hash": file_hash,
+            "modo": modo,
+            "error": "No quedaron filas válidas tras la limpieza.",
+        }
 
     asistentes = sorted(df["Attendant"].dropna().unique().tolist())
-    meses_en_archivo = df["Mes"].unique()
-    tipo_archivo = df["Tipo"].iloc[0] if "Tipo" in df.columns else "GETNET"
+    meses_en_archivo = sorted(df["Mes"].unique().tolist())
+    tipo_archivo = info["tipo"]
     TargetModel = PremioModel if tipo_archivo == "PREMIOS" else OperacionModel
     table = TargetModel.__table__
 
@@ -159,16 +257,107 @@ def guardar_datos_db(path_xlsx: str, db, OperacionModel, PremioModel, sheet_name
     if "propina" in df_insert.columns:
         df_insert["propina"] = pd.to_numeric(df_insert["propina"], errors="coerce").fillna(0)
 
-    try:
-        with db.engine.begin() as conn:
+    with db.engine.begin() as conn:
+        if modo == "replace":
             for mes in meses_en_archivo:
                 stmt = table.delete().where(table.c.mes == mes)
                 conn.execute(stmt)
-            df_insert.to_sql(table.name, con=conn, if_exists="append",
-                             index=False, method="multi", chunksize=1000)
-        return len(df_insert), tipo_archivo, asistentes
-    except Exception as e:
-        raise e
+        # modo == "append": no borra nada, solo inserta (puede duplicar si ya estaba)
+        df_insert.to_sql(table.name, con=conn, if_exists="append",
+                         index=False, method="multi", chunksize=1000)
+
+    return {
+        "guardados": len(df_insert),
+        "tipo": tipo_archivo,
+        "asistentes": asistentes,
+        "meses": meses_en_archivo,
+        "total_leido": info["total_leido"],
+        "descartados": {
+            "fecha": info["descartados_fecha"],
+            "attendant": info["descartados_attendant"],
+            "hora": info["descartados_hora"],
+            "monto_neg": info["descartados_monto_neg"],
+        },
+        "columnas_faltantes": [],
+        "file_hash": file_hash,
+        "modo": modo,
+        "error": None,
+    }
+
+
+def generar_kpis(df: pd.DataFrame, df_mes_anterior: pd.DataFrame | None = None) -> dict:
+    """
+    Calcula KPIs de cabecera para un DataFrame ya limpio.
+
+    Retorna dict con:
+      - total_operaciones (int)
+      - total_monto (float)
+      - ticket_promedio (float)
+      - delta_ops_pct (float | None): variación % vs periodo anterior
+      - delta_monto_pct (float | None)
+      - hora_pico (int | None): hora con más operaciones
+      - hora_pico_ops (int)
+      - top_asistente (str | None)
+      - top_asistente_ops (int)
+      - dias_con_datos (int)
+      - tiene_montos_negativos (bool)
+    """
+    if df is None or df.empty:
+        return {
+            "total_operaciones": 0, "total_monto": 0.0, "ticket_promedio": 0.0,
+            "delta_ops_pct": None, "delta_monto_pct": None,
+            "hora_pico": None, "hora_pico_ops": 0,
+            "top_asistente": None, "top_asistente_ops": 0,
+            "dias_con_datos": 0, "tiene_montos_negativos": False,
+        }
+
+    total_ops = int(len(df))
+    total_monto = float(df["Monto"].sum())
+    ticket_prom = float(total_monto / total_ops) if total_ops else 0.0
+
+    # Hora pico
+    hora_counts = df.groupby("Hora").size()
+    if len(hora_counts):
+        hora_pico = int(hora_counts.idxmax())
+        hora_pico_ops = int(hora_counts.max())
+    else:
+        hora_pico, hora_pico_ops = None, 0
+
+    # Top asistente
+    att_counts = df.groupby("Attendant").size().sort_values(ascending=False)
+    if len(att_counts):
+        top_asistente = str(att_counts.index[0])
+        top_asistente_ops = int(att_counts.iloc[0])
+    else:
+        top_asistente, top_asistente_ops = None, 0
+
+    # Deltas vs mes anterior
+    delta_ops_pct = None
+    delta_monto_pct = None
+    if df_mes_anterior is not None and not df_mes_anterior.empty:
+        prev_ops = len(df_mes_anterior)
+        prev_monto = float(df_mes_anterior["Monto"].sum())
+        if prev_ops > 0:
+            delta_ops_pct = round((total_ops - prev_ops) / prev_ops * 100, 1)
+        if prev_monto > 0:
+            delta_monto_pct = round((total_monto - prev_monto) / prev_monto * 100, 1)
+
+    dias = int(df["JornadaDia"].nunique()) if "JornadaDia" in df.columns else 0
+    tiene_neg = bool((df["Monto"] < 0).any())
+
+    return {
+        "total_operaciones": total_ops,
+        "total_monto": total_monto,
+        "ticket_promedio": ticket_prom,
+        "delta_ops_pct": delta_ops_pct,
+        "delta_monto_pct": delta_monto_pct,
+        "hora_pico": hora_pico,
+        "hora_pico_ops": hora_pico_ops,
+        "top_asistente": top_asistente,
+        "top_asistente_ops": top_asistente_ops,
+        "dias_con_datos": dias,
+        "tiene_montos_negativos": tiene_neg,
+    }
 
 def generar_reportes(df: pd.DataFrame, asistentes_filtro: list = None) -> dict:
     """

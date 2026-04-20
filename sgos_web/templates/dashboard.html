@@ -10,6 +10,86 @@
       <h1><i class="bi bi-graph-up"></i> {{ titulo_dashboard|default('Data de Reportes') }}</h1>
     </div>
 
+    {% if kpis and kpis.total_operaciones > 0 %}
+    <div class="row g-3 mb-4 kpi-row">
+      <div class="col-6 col-md-3">
+        <div class="kpi-card">
+          <div class="kpi-label"><i class="bi bi-stack"></i> Total operaciones</div>
+          <div class="kpi-value">{{ "{:,}".format(kpis.total_operaciones) }}</div>
+          {% if kpis.delta_ops_pct is not none %}
+            <div class="kpi-delta {{ 'up' if kpis.delta_ops_pct >= 0 else 'down' }}">
+              <i class="bi bi-arrow-{{ 'up' if kpis.delta_ops_pct >= 0 else 'down' }}-right"></i>
+              {{ kpis.delta_ops_pct }}% vs mes anterior
+            </div>
+          {% else %}
+            <div class="kpi-delta neutral">{{ kpis.dias_con_datos }} días con datos</div>
+          {% endif %}
+        </div>
+      </div>
+
+      {% if tipo_modulo != 'PREMIOS' %}
+      <div class="col-6 col-md-3">
+        <div class="kpi-card">
+          <div class="kpi-label"><i class="bi bi-cash-stack"></i> Monto total</div>
+          <div class="kpi-value">${{ "{:,.0f}".format(kpis.total_monto) }}</div>
+          {% if kpis.delta_monto_pct is not none %}
+            <div class="kpi-delta {{ 'up' if kpis.delta_monto_pct >= 0 else 'down' }}">
+              <i class="bi bi-arrow-{{ 'up' if kpis.delta_monto_pct >= 0 else 'down' }}-right"></i>
+              {{ kpis.delta_monto_pct }}% vs mes anterior
+            </div>
+          {% else %}
+            <div class="kpi-delta neutral">Ticket prom: ${{ "{:,.0f}".format(kpis.ticket_promedio) }}</div>
+          {% endif %}
+        </div>
+      </div>
+      {% else %}
+      <div class="col-6 col-md-3">
+        <div class="kpi-card">
+          <div class="kpi-label"><i class="bi bi-trophy"></i> Monto pagado</div>
+          <div class="kpi-value">${{ "{:,.0f}".format(kpis.total_monto) }}</div>
+          {% if kpis.delta_monto_pct is not none %}
+            <div class="kpi-delta {{ 'up' if kpis.delta_monto_pct >= 0 else 'down' }}">
+              <i class="bi bi-arrow-{{ 'up' if kpis.delta_monto_pct >= 0 else 'down' }}-right"></i>
+              {{ kpis.delta_monto_pct }}% vs mes anterior
+            </div>
+          {% else %}
+            <div class="kpi-delta neutral">Promedio: ${{ "{:,.0f}".format(kpis.ticket_promedio) }}</div>
+          {% endif %}
+        </div>
+      </div>
+      {% endif %}
+
+      <div class="col-6 col-md-3">
+        <div class="kpi-card">
+          <div class="kpi-label"><i class="bi bi-clock-history"></i> Hora pico</div>
+          <div class="kpi-value">
+            {% if kpis.hora_pico is not none %}{{ "%02d:00"|format(kpis.hora_pico) }}{% else %}—{% endif %}
+          </div>
+          <div class="kpi-delta neutral">{{ "{:,}".format(kpis.hora_pico_ops) }} operaciones</div>
+        </div>
+      </div>
+
+      <div class="col-6 col-md-3">
+        <div class="kpi-card">
+          <div class="kpi-label"><i class="bi bi-person-badge"></i> Top asistente</div>
+          <div class="kpi-value kpi-name" title="{{ kpis.top_asistente or '' }}">
+            {{ kpis.top_asistente or '—' }}
+          </div>
+          <div class="kpi-delta neutral">{{ "{:,}".format(kpis.top_asistente_ops) }} operaciones</div>
+        </div>
+      </div>
+
+      {% if kpis.tiene_montos_negativos %}
+      <div class="col-12">
+        <div class="alert alert-warning mb-0 py-2">
+          <i class="bi bi-exclamation-triangle-fill"></i>
+          Se detectaron montos negativos en el periodo. Revisa las tablas para identificar anomalías.
+        </div>
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+
     <div class="action-bar">
       <a class="btn btn-custom btn-back" href="/">
         <i class="bi bi-arrow-left"></i> Subir otro archivo
