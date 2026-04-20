@@ -69,6 +69,51 @@
             </div>
         </div>
     </div>
+
+    {% if heatmap and heatmap.max_ops > 0 %}
+    <div class="row">
+        <div class="col-12 mb-4">
+            <div class="card shadow-sm bg-dark text-light border-secondary">
+                <div class="card-header border-secondary d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0"><i class="bi bi-grid-3x3-gap"></i> Mapa de Calor · Día × Hora</h5>
+                    <small class="text-muted">Intensidad = nº de operaciones</small>
+                </div>
+                <div class="card-body">
+                    <div class="heatmap-wrap">
+                        <table class="heatmap-table">
+                            <thead>
+                                <tr>
+                                    <th class="heatmap-corner"></th>
+                                    {% for h in heatmap.horas %}
+                                        <th class="heatmap-hour">{{ "%02d"|format(h) }}</th>
+                                    {% endfor %}
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for d in range(7) %}
+                                <tr>
+                                    <th class="heatmap-day">{{ heatmap.dias[d] }}</th>
+                                    {% for i in range(heatmap.horas|length) %}
+                                        {% set ops = heatmap.ops[d][i] %}
+                                        {% set monto = heatmap.monto[d][i] %}
+                                        {% set intensity = (ops / heatmap.max_ops) if heatmap.max_ops else 0 %}
+                                        <td class="heatmap-cell"
+                                            style="--intensity: {{ '%.3f'|format(intensity) }};"
+                                            data-bs-toggle="tooltip"
+                                            title="{{ heatmap.dias[d] }} {{ '%02d'|format(heatmap.horas[i]) }}:00 — {{ ops }} ops · ${{ '{:,.0f}'.format(monto) }}">
+                                            {% if ops > 0 %}{{ ops }}{% endif %}
+                                        </td>
+                                    {% endfor %}
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 </div>
 
 <!-- Chart.js -->

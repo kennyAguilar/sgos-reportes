@@ -1,0 +1,177 @@
+{% extends "layout.html" %}
+
+{% block title %}Getnet vs Premios{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
+        <h1 class="mb-0"><i class="bi bi-bar-chart-steps"></i> Getnet vs Premios</h1>
+        <form method="get" class="d-flex align-items-center gap-2">
+            <label class="mb-0 small text-muted">Año:</label>
+            <select name="year" class="form-select form-select-sm" onchange="this.form.submit()">
+                <option value="all" {{ 'selected' if selected_year == 'all' }}>Todos</option>
+                {% for y in years %}
+                <option value="{{ y }}" {{ 'selected' if selected_year == y }}>{{ y }}</option>
+                {% endfor %}
+            </select>
+        </form>
+    </div>
+
+    {# KPIs totales #}
+    <div class="row g-3 mb-4 kpi-row">
+        <div class="col-md-4">
+            <div class="kpi-card">
+                <div class="kpi-label">Ingresos Getnet</div>
+                <div class="kpi-value">${{ '{:,.0f}'.format(ratio.totales.getnet) }}</div>
+                <div class="kpi-delta neutral">{{ ratio.labels|length }} meses con datos</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="kpi-card">
+                <div class="kpi-label">Pagos Premios</div>
+                <div class="kpi-value">${{ '{:,.0f}'.format(ratio.totales.premios) }}</div>
+                <div class="kpi-delta neutral">total del periodo</div>
+            </div>
+        </div>
+        <div class="col-md-4">
+            <div class="kpi-card">
+                <div class="kpi-label">Ratio Payout Global</div>
+                <div class="kpi-value">
+                    {% if ratio.totales.ratio_global_pct is not none %}
+                        {{ '{:.2f}'.format(ratio.totales.ratio_global_pct) }}%
+                    {% else %}—{% endif %}
+                </div>
+                <div class="kpi-delta {{ 'down' if ratio.totales.ratio_global_pct is not none and ratio.totales.ratio_global_pct > 100 else 'up' if ratio.totales.ratio_global_pct is not none else 'neutral' }}">
+                    Premios / Getnet
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if ratio.labels %}
+    <div class="row">
+        <div class="col-lg-8 mb-4">
+            <div class="card shadow-sm bg-dark text-light border-secondary">
+                <div class="card-header border-secondary">
+                    <h5 class="card-title mb-0"><i class="bi bi-bar-chart"></i> Montos Mensuales</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="chartComp" height="140"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-4 mb-4">
+            <div class="card shadow-sm bg-dark text-light border-secondary">
+                <div class="card-header border-secondary">
+                    <h5 class="card-title mb-0"><i class="bi bi-graph-up-arrow"></i> Ratio Payout Mensual</h5>
+                </div>
+                <div class="card-body">
+                    <canvas id="chartRatio" height="220"></canvas>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card shadow-sm bg-dark text-light border-secondary">
+        <div class="card-header border-secondary">
+            <h5 class="card-title mb-0"><i class="bi bi-table"></i> Detalle mensual</h5>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-dark table-striped mb-0 align-middle">
+                    <thead>
+                        <tr>
+                            <th>Mes</th>
+                            <th class="text-end">Getnet</th>
+                            <th class="text-end">Premios</th>
+                            <th class="text-end">Neto</th>
+                            <th class="text-end">Ratio</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for i in range(ratio.labels|length) %}
+                        {% set g = ratio.getnet_monto[i] %}
+                        {% set p = ratio.premios_monto[i] %}
+                        {% set r = ratio.ratio_pct[i] %}
+                        <tr>
+                            <td>{{ ratio.labels[i] }}</td>
+                            <td class="text-end tabular-nums">${{ '{:,.0f}'.format(g) }}</td>
+                            <td class="text-end tabular-nums">${{ '{:,.0f}'.format(p) }}</td>
+                            <td class="text-end tabular-nums {{ 'text-danger' if (g - p) < 0 else 'text-success' }}">
+                                ${{ '{:,.0f}'.format(g - p) }}
+                            </td>
+                            <td class="text-end tabular-nums">
+                                {% if r is not none %}
+                                    <span class="badge {{ 'bg-danger' if r > 100 else 'bg-warning text-dark' if r > 80 else 'bg-success' }}">
+                                        {{ '{:.2f}'.format(r) }}%
+                                    </span>
+                                {% else %}<span class="text-muted">—</span>{% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="{{ url_for('static', filename='js/sgos-charts.js') }}"></script>
+    <script>
+        (function(){
+            const T = window.SGOSChartTheme || { gold: '#D4AF37', emerald: '#10B981', ruby: '#EF4444' };
+            const labels = {{ ratio.labels | tojson }};
+            const getnet = {{ ratio.getnet_monto | tojson }};
+            const premios = {{ ratio.premios_monto | tojson }};
+            const rpct = {{ ratio.ratio_pct | tojson }};
+
+            const fmtCurrency = (v) => '$' + Number(v).toLocaleString('es-CL', { maximumFractionDigits: 0 });
+
+            new Chart(document.getElementById('chartComp'), {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        { label: 'Getnet (ingresos)', data: getnet, backgroundColor: T.emerald, borderRadius: 4 },
+                        { label: 'Premios (pagos)', data: premios, backgroundColor: T.gold, borderRadius: 4 }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        tooltip: { callbacks: { label: (ctx) => ctx.dataset.label + ': ' + fmtCurrency(ctx.parsed.y) } }
+                    },
+                    scales: { y: { ticks: { callback: (v) => fmtCurrency(v) } } }
+                }
+            });
+
+            new Chart(document.getElementById('chartRatio'), {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Ratio Payout %',
+                        data: rpct,
+                        borderColor: T.ruby,
+                        backgroundColor: 'rgba(239,68,68,0.15)',
+                        fill: true,
+                        tension: 0.3,
+                        spanGaps: true,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        tooltip: { callbacks: { label: (ctx) => (ctx.parsed.y == null ? '—' : ctx.parsed.y.toFixed(2) + '%') } }
+                    },
+                    scales: { y: { ticks: { callback: (v) => v + '%' } } }
+                }
+            });
+        })();
+    </script>
+
+    {% else %}
+    <div class="alert alert-info"><i class="bi bi-info-circle"></i> No hay datos para mostrar en el periodo seleccionado.</div>
+    {% endif %}
+</div>
+{% endblock %}

@@ -359,6 +359,85 @@ def generar_kpis(df: pd.DataFrame, df_mes_anterior: pd.DataFrame | None = None) 
         "tiene_montos_negativos": tiene_neg,
     }
 
+
+DIAS_SEMANA_ES = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado", "Domingo"]
+
+
+def heatmap_dia_hora(df: pd.DataFrame) -> dict:
+    """Matriz 7 días × 24 horas con operaciones y monto para heatmap.
+
+    Retorna dict con:
+      - dias: lista de nombres de días (lunes→domingo)
+      - horas: lista de horas ordenadas (10..23, 0..8)
+      - ops: matriz [día][hora] con número de operaciones
+      - monto: matriz [día][hora] con suma de monto
+      - max_ops: valor máximo de operaciones (para escalar intensidad)
+    """
+    horas = ORDEN_HORAS[:]
+    ops = [[0] * len(horas) for _ in range(7)]
+    monto = [[0.0] * len(horas) for _ in range(7)]
+
+    if df is None or df.empty or "JornadaDia" not in df.columns or "Hora" not in df.columns:
+        return {"dias": DIAS_SEMANA_ES, "horas": horas, "ops": ops, "monto": monto, "max_ops": 0}
+
+    tmp = df[["JornadaDia", "Hora", "Monto"]].copy()
+    tmp["dow"] = pd.to_datetime(tmp["JornadaDia"]).dt.dayofweek  # 0=lunes
+    g = tmp.groupby(["dow", "Hora"]).agg(ops=("Monto", "size"), monto=("Monto", "sum")).reset_index()
+
+    hora_idx = {h: i for i, h in enumerate(horas)}
+    max_ops = 0
+    for _, r in g.iterrows():
+        d = int(r["dow"])
+        h_i = hora_idx.get(int(r["Hora"]))
+        if h_i is None or d < 0 or d > 6:
+            continue
+        ops[d][h_i] = int(r["ops"])
+        monto[d][h_i] = float(r["monto"])
+        if ops[d][h_i] > max_ops:
+            max_ops = ops[d][h_i]
+
+    return {"dias": DIAS_SEMANA_ES, "horas": horas, "ops": ops, "monto": monto, "max_ops": max_ops}
+
+
+def ratio_getnet_premios(df_getnet: pd.DataFrame, df_premios: pd.DataFrame) -> dict:
+    """Compara ingresos Getnet vs pagos Premios agrupados por Mes.
+
+    Retorna dict con:
+      - labels: lista de meses (YYYY-MM) ordenados
+      - getnet_monto, premios_monto: listas paralelas
+      - ratio_pct: lista con (premios / getnet) * 100 por mes; None si getnet=0
+      - totales: {getnet, premios, ratio_global_pct}
+    """
+    def _mensual(df):
+        if df is None or df.empty or "Mes" not in df.columns:
+            return pd.Series(dtype=float)
+        return df.groupby("Mes")["Monto"].sum()
+
+    s_g = _mensual(df_getnet)
+    s_p = _mensual(df_premios)
+    labels = sorted(set(s_g.index) | set(s_p.index))
+
+    getnet_monto, premios_monto, ratio_pct = [], [], []
+    for m in labels:
+        g = float(s_g.get(m, 0.0))
+        p = float(s_p.get(m, 0.0))
+        getnet_monto.append(g)
+        premios_monto.append(p)
+        ratio_pct.append(round(p / g * 100, 2) if g > 0 else None)
+
+    tot_g = float(sum(getnet_monto))
+    tot_p = float(sum(premios_monto))
+    ratio_global = round(tot_p / tot_g * 100, 2) if tot_g > 0 else None
+
+    return {
+        "labels": labels,
+        "getnet_monto": getnet_monto,
+        "premios_monto": premios_monto,
+        "ratio_pct": ratio_pct,
+        "totales": {"getnet": tot_g, "premios": tot_p, "ratio_global_pct": ratio_global},
+    }
+
+
 def generar_reportes(df: pd.DataFrame, asistentes_filtro: list = None) -> dict:
     """
     Genera los diccionarios de DataFrames (tablas) a partir de un DataFrame principal ya limpio.

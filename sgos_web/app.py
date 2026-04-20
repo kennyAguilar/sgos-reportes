@@ -36,9 +36,9 @@ def desktop_save_response(output, filename):
                      mimetype="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
 
 try:
-    from sgos_web.engine import procesar_sgos, exportar_excel_bytes, obtener_asistentes, guardar_datos_db, generar_reportes, _cargar_df, generar_kpis
+    from sgos_web.engine import procesar_sgos, exportar_excel_bytes, obtener_asistentes, guardar_datos_db, generar_reportes, _cargar_df, generar_kpis, heatmap_dia_hora, ratio_getnet_premios
 except ImportError:
-    from engine import procesar_sgos, exportar_excel_bytes, obtener_asistentes, guardar_datos_db, generar_reportes, _cargar_df, generar_kpis
+    from engine import procesar_sgos, exportar_excel_bytes, obtener_asistentes, guardar_datos_db, generar_reportes, _cargar_df, generar_kpis, heatmap_dia_hora, ratio_getnet_premios
 
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY") or os.urandom(32).hex()
@@ -902,6 +902,7 @@ def graphs():
         return render_template("graphs.html", 
                                data_mes={"labels": [], "ops": [], "monto": []},
                                data_hora={"labels": [], "ops": [], "monto": []},
+                               heatmap=None,
                                years=years,
                                selected_year=year,
                                title="Dashboard de Reportes",
@@ -927,9 +928,12 @@ def graphs():
         "monto_avg": df_hora["Monto Promedio"].tolist()
     }
 
+    hm = heatmap_dia_hora(df)
+
     return render_template("graphs.html", 
                            data_mes=data_mes, 
                            data_hora=data_hora, 
+                           heatmap=hm,
                            years=years, 
                            selected_year=year,
                            title="Dashboard de Reportes",
@@ -953,6 +957,7 @@ def graphs_premios():
         return render_template("graphs.html", 
                                data_mes={"labels": [], "ops": [], "monto": []},
                                data_hora={"labels": [], "ops": [], "monto": []},
+                               heatmap=None,
                                years=years,
                                selected_year=year,
                                title="Dashboard de Premios",
@@ -977,9 +982,12 @@ def graphs_premios():
         "monto_avg": df_hora["Monto Promedio"].tolist()
     }
 
+    hm = heatmap_dia_hora(df)
+
     return render_template("graphs.html", 
                            data_mes=data_mes, 
                            data_hora=data_hora, 
+                           heatmap=hm,
                            years=years, 
                            selected_year=year,
                            title="Dashboard de Premios",
@@ -992,6 +1000,60 @@ except ImportError:
     from comps_routes import comps_bp
 
 app.register_blueprint(comps_bp)
+
+
+@app.route("/cargas")
+@login_required
+def cargas_historial():
+    """Historial de cargas con auditoría: quién, qué, cuándo, hash, descartes."""
+    page = request.args.get("page", 1, type=int)
+    per_page = 30
+    q = CargaLog.query.order_by(CargaLog.id.desc())
+    total = q.count()
+    items = q.offset((page - 1) * per_page).limit(per_page).all()
+    total_paginas = max(1, (total + per_page - 1) // per_page)
+
+    # Detectar duplicados (mismo hash aparece más de una vez en toda la tabla)
+    from sqlalchemy import func as _f
+    dup_rows = (
+        db.session.query(CargaLog.file_hash, _f.count(CargaLog.id))
+        .filter(CargaLog.file_hash.isnot(None))
+        .group_by(CargaLog.file_hash)
+        .having(_f.count(CargaLog.id) > 1)
+        .all()
+    )
+    hash_counts = {h: n for h, n in dup_rows}
+
+    return render_template(
+        "historial_cargas.html",
+        cargas=items,
+        page=page,
+        total_paginas=total_paginas,
+        total=total,
+        hash_counts=hash_counts,
+    )
+
+
+@app.route("/dashboard_combinado")
+@login_required
+def dashboard_combinado():
+    """Comparativa mensual Getnet (ingresos) vs Premios (pagos) y ratio de payout."""
+    year = request.args.get("year", "all")
+    years_g, _ = get_available_dates(Operacion)
+    years_p, _ = get_available_dates(Premio)
+    years = sorted(set(years_g) | set(years_p), reverse=True)
+
+    df_g = get_db_dataframe(year=year if year != "all" else None)
+    df_p = get_premios_dataframe(year=year if year != "all" else None)
+
+    ratio = ratio_getnet_premios(df_g, df_p)
+
+    return render_template(
+        "dashboard_combinado.html",
+        ratio=ratio,
+        years=years,
+        selected_year=year,
+    )
 
 
 if __name__ == "__main__":

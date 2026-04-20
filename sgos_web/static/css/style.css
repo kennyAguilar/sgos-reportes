@@ -946,3 +946,52 @@ body.login-page {
   body::before { display: none; }
   .navbar-custom, .global-loader, .toast-container { display: none !important; }
 }
+
+/* ==========================================================================
+   Heatmap Día × Hora
+   ========================================================================== */
+.heatmap-wrap {
+  overflow-x: auto;
+}
+.heatmap-table {
+  border-collapse: separate;
+  border-spacing: 2px;
+  font-size: 0.75rem;
+  margin: 0 auto;
+}
+.heatmap-table th,
+.heatmap-table td {
+  text-align: center;
+  vertical-align: middle;
+}
+.heatmap-hour {
+  color: var(--text-muted);
+  font-weight: 500;
+  padding: 4px 2px;
+  min-width: 28px;
+}
+.heatmap-day {
+  color: var(--text-secondary);
+  font-weight: 600;
+  padding-right: 10px;
+  text-align: right;
+  white-space: nowrap;
+}
+.heatmap-corner { width: 88px; }
+.heatmap-cell {
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  background: rgba(212, 175, 55, calc(var(--intensity, 0) * 0.9 + 0.04));
+  color: var(--text-primary);
+  font-weight: 600;
+  transition: transform 0.15s ease;
+  cursor: default;
+}
+.heatmap-cell:hover {
+  transform: scale(1.15);
+  outline: 1px solid var(--gold);
+  z-index: 2;
+  position: relative;
+}
+.tabular-nums { font-variant-numeric: tabular-nums; }
