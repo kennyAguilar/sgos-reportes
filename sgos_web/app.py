@@ -948,9 +948,9 @@ def graphs_premios():
 
     df = get_premios_dataframe(year=year)
     
-    # Filtrar solo Premios y Premios Progresivos
+    # Filtrar solo Jackpot HP y Progressive Jackpot HP
     if not df.empty:
-        tipos_validos = ["jackpot hp", "progresive jackpot hp", "progressive jackpot hp"]
+        tipos_validos = ["jackpot hp", "progressive jackpot hp"]
         df = df[df["FormaPago"].astype(str).str.lower().str.strip().isin(tipos_validos)].copy()
 
     if df.empty:
@@ -1046,8 +1046,8 @@ def dashboard_combinado():
     df_g = get_db_dataframe(year=year if year != "all" else None)
     df_p = get_premios_dataframe(year=year if year != "all" else None)
 
-    # Filtrar Premios: solo Handpay y Progressive Handpay (mismo criterio que /graphs_premios)
-    tipos_jackpot = ["jackpot hp", "progresive jackpot hp", "progressive jackpot hp"]
+    # Filtrar Premios: solo Jackpot HP y Progressive Jackpot HP (mismo criterio que /graphs_premios)
+    tipos_jackpot = ["jackpot hp", "progressive jackpot hp"]
     if not df_p.empty and "FormaPago" in df_p.columns:
         df_p = df_p[df_p["FormaPago"].astype(str).str.lower().str.strip().isin(tipos_jackpot)].copy()
 
