@@ -100,72 +100,61 @@
     </div>
 
     <div class="accordion" id="acc">
-      {% if years %}
+      {% if years or asistentes_disponibles %}
       <div class="accordion-item">
         <h2 class="accordion-header">
-          <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#filtro-fecha">
-            <i class="bi bi-calendar-date me-10px"></i>
-            Filtrar por Fecha
-          </button>
-        </h2>
-        <div id="filtro-fecha" class="accordion-collapse collapse show">
-          <div class="accordion-body">
-            <form method="post" id="form-fecha">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <div class="row g-3 align-items-center">
-                    <div class="col-auto">
-                        <label for="year" class="col-form-label">Año:</label>
-                    </div>
-                    <div class="col-auto">
-                        <select name="year" id="year" class="form-select">
-                            <option value="all" {% if selected_year == 'all' %}selected{% endif %}>Todos</option>
-                            {% for y in years %}
-                            <option value="{{ y }}" {% if selected_year == y %}selected{% endif %}>{{ y }}</option>
-                            {% endfor %}
-                        </select>
-                    </div>
-                    <div class="col-auto">
-                        <label for="month" class="col-form-label">Mes:</label>
-                    </div>
-                    <div class="col-auto">
-                        <select name="month" id="month" class="form-select">
-                            <option value="all" {% if selected_month == 'all' %}selected{% endif %}>Todos</option>
-                            <option value="01" {% if selected_month == '01' %}selected{% endif %}>Enero</option>
-                            <option value="02" {% if selected_month == '02' %}selected{% endif %}>Febrero</option>
-                            <option value="03" {% if selected_month == '03' %}selected{% endif %}>Marzo</option>
-                            <option value="04" {% if selected_month == '04' %}selected{% endif %}>Abril</option>
-                            <option value="05" {% if selected_month == '05' %}selected{% endif %}>Mayo</option>
-                            <option value="06" {% if selected_month == '06' %}selected{% endif %}>Junio</option>
-                            <option value="07" {% if selected_month == '07' %}selected{% endif %}>Julio</option>
-                            <option value="08" {% if selected_month == '08' %}selected{% endif %}>Agosto</option>
-                            <option value="09" {% if selected_month == '09' %}selected{% endif %}>Septiembre</option>
-                            <option value="10" {% if selected_month == '10' %}selected{% endif %}>Octubre</option>
-                            <option value="11" {% if selected_month == '11' %}selected{% endif %}>Noviembre</option>
-                            <option value="12" {% if selected_month == '12' %}selected{% endif %}>Diciembre</option>
-                        </select>
-                    </div>
-                    <div class="col-auto">
-                        <button type="submit" class="btn btn-primary">Filtrar</button>
-                    </div>
-                </div>
-            </form>
-          </div>
-        </div>
-      </div>
-      {% endif %}
-
-      {% if asistentes_disponibles %}
-      <div class="accordion-item">
-        <h2 class="accordion-header">
-          <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#filtro-asistentes">
+          <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#filtro-unico">
             <i class="bi bi-funnel me-10px"></i>
-            Filtrar por Asistentes
+            Filtros
           </button>
         </h2>
-        <div id="filtro-asistentes" class="accordion-collapse collapse show">
+        <div id="filtro-unico" class="accordion-collapse collapse show">
           <div class="accordion-body">
-            <form method="post">
+            <form method="post" id="form-filtros">
               <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+
+              {% if years %}
+              <div class="row g-3 align-items-center mb-3 pb-3 border-bottom border-secondary">
+                <div class="col-auto">
+                  <label for="year" class="col-form-label"><i class="bi bi-calendar-date"></i> Año:</label>
+                </div>
+                <div class="col-auto">
+                  <select name="year" id="year" class="form-select">
+                    <option value="all" {% if selected_year == 'all' %}selected{% endif %}>Todos</option>
+                    {% for y in years %}
+                    <option value="{{ y }}" {% if selected_year == y %}selected{% endif %}>{{ y }}</option>
+                    {% endfor %}
+                  </select>
+                </div>
+                <div class="col-auto">
+                  <label for="month" class="col-form-label">Mes:</label>
+                </div>
+                <div class="col-auto">
+                  <select name="month" id="month" class="form-select">
+                    <option value="all" {% if selected_month == 'all' %}selected{% endif %}>Todos</option>
+                    <option value="01" {% if selected_month == '01' %}selected{% endif %}>Enero</option>
+                    <option value="02" {% if selected_month == '02' %}selected{% endif %}>Febrero</option>
+                    <option value="03" {% if selected_month == '03' %}selected{% endif %}>Marzo</option>
+                    <option value="04" {% if selected_month == '04' %}selected{% endif %}>Abril</option>
+                    <option value="05" {% if selected_month == '05' %}selected{% endif %}>Mayo</option>
+                    <option value="06" {% if selected_month == '06' %}selected{% endif %}>Junio</option>
+                    <option value="07" {% if selected_month == '07' %}selected{% endif %}>Julio</option>
+                    <option value="08" {% if selected_month == '08' %}selected{% endif %}>Agosto</option>
+                    <option value="09" {% if selected_month == '09' %}selected{% endif %}>Septiembre</option>
+                    <option value="10" {% if selected_month == '10' %}selected{% endif %}>Octubre</option>
+                    <option value="11" {% if selected_month == '11' %}selected{% endif %}>Noviembre</option>
+                    <option value="12" {% if selected_month == '12' %}selected{% endif %}>Diciembre</option>
+                  </select>
+                </div>
+              </div>
+              {% endif %}
+
+              {% if asistentes_disponibles %}
+              <div class="mb-2 d-flex align-items-center gap-2">
+                <i class="bi bi-people"></i>
+                <strong>Asistentes</strong>
+                <small class="text-muted" id="countSelected">0 seleccionados</small>
+              </div>
               <div class="d-flex gap-2 mb-3">
                 <input type="text" id="searchAsistentes" class="form-control form-control-sm" placeholder="Buscar asistente...">
                 <button type="button" class="btn btn-sm btn-outline-secondary text-nowrap" onclick="toggleAll(true)">Todos</button>
@@ -175,32 +164,33 @@
               <div class="checkbox-group checkbox-group-scrollable">
                 {% for asistente in asistentes_disponibles %}
                 <div class="form-check asistente-item">
-                  <input class="form-check-input" type="checkbox" name="asistentes" value="{{ asistente }}" 
-                         id="asistente_{{ loop.index }}" 
+                  <input class="form-check-input" type="checkbox" name="asistentes" value="{{ asistente }}"
+                         id="asistente_{{ loop.index }}"
                          {% if asistente in asistentes_seleccionados %}checked{% endif %}>
                   <label class="form-check-label dashboard-check-label" for="asistente_{{ loop.index }}">{{ asistente }}</label>
                 </div>
                 {% endfor %}
               </div>
-              <div class="mt-2 text-end">
-                <small class="text-muted" id="countSelected">0 seleccionados</small>
-              </div>
+              {% endif %}
 
               <button type="submit" class="btn btn-primary mt-15px-w-100">
-                <i class="bi bi-check-circle"></i> Aplicar Filtro
+                <i class="bi bi-check-circle"></i> Aplicar Filtros
               </button>
             </form>
 
             <script>
               // Filtrado en tiempo real
-              document.getElementById('searchAsistentes').addEventListener('keyup', function() {
-                let filter = this.value.toLowerCase();
-                let items = document.querySelectorAll('.asistente-item');
-                items.forEach(item => {
-                  let text = item.querySelector('label').innerText.toLowerCase();
-                  item.style.display = text.includes(filter) ? '' : 'none';
+              const searchInput = document.getElementById('searchAsistentes');
+              if (searchInput) {
+                searchInput.addEventListener('keyup', function() {
+                  let filter = this.value.toLowerCase();
+                  let items = document.querySelectorAll('.asistente-item');
+                  items.forEach(item => {
+                    let text = item.querySelector('label').innerText.toLowerCase();
+                    item.style.display = text.includes(filter) ? '' : 'none';
+                  });
                 });
-              });
+              }
 
               // Seleccionar Todos / Ninguno
               function toggleAll(checked) {
@@ -212,14 +202,15 @@
               // Contador de seleccionados
               function updateCount() {
                 let count = document.querySelectorAll('input[name="asistentes"]:checked').length;
-                document.getElementById('countSelected').innerText = count + ' seleccionados';
+                const el = document.getElementById('countSelected');
+                if (el) el.innerText = count + ' seleccionados';
               }
 
               // Event listeners para actualizar contador
               document.querySelectorAll('input[name="asistentes"]').forEach(cb => {
                 cb.addEventListener('change', updateCount);
               });
-              
+
               // Inicializar contador
               updateCount();
 
