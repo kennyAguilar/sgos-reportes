@@ -5,7 +5,10 @@
 {% block content %}
 <div class="container-fluid">
     <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
-        <h1 class="mb-0"><i class="bi bi-bar-chart-steps"></i> Getnet vs Premios</h1>
+        <div>
+            <h1 class="mb-0"><i class="bi bi-bar-chart-steps"></i> Getnet vs Premios</h1>
+            <small class="text-muted">Premios = solo Handpay + Progressive Handpay</small>
+        </div>
         <form method="get" class="d-flex align-items-center gap-2">
             <label class="mb-0 small text-muted">Año:</label>
             <select name="year" class="form-select form-select-sm" onchange="this.form.submit()">

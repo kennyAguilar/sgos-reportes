@@ -1046,6 +1046,11 @@ def dashboard_combinado():
     df_g = get_db_dataframe(year=year if year != "all" else None)
     df_p = get_premios_dataframe(year=year if year != "all" else None)
 
+    # Filtrar Premios: solo Handpay y Progressive Handpay (mismo criterio que /graphs_premios)
+    tipos_jackpot = ["jackpot hp", "progresive jackpot hp", "progressive jackpot hp"]
+    if not df_p.empty and "FormaPago" in df_p.columns:
+        df_p = df_p[df_p["FormaPago"].astype(str).str.lower().str.strip().isin(tipos_jackpot)].copy()
+
     ratio = ratio_getnet_premios(df_g, df_p)
 
     return render_template(
