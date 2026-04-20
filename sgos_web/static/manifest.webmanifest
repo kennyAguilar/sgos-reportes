@@ -4,8 +4,8 @@
   "description": "Reportes Getnet, Premios y Auditoría COMPS",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#1a1a2e",
-  "theme_color": "#16213e",
+  "background_color": "#0A0E1A",
+  "theme_color": "#0A0E1A",
   "orientation": "any",
   "icons": [
     {

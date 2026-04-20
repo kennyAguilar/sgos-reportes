@@ -135,7 +135,7 @@ def cargar_datos():
             if not f or f.filename == '':
                 continue
             if not allowed_file(f.filename):
-                flash(f'Archivo no válido: {f.filename}. Solo .xls y .xlsx', 'error')
+                flash(f'Archivo no válido: {f.filename}. Solo .xls y .xlsx', 'danger')
                 continue
 
             filename = secure_filename(f.filename)
@@ -165,13 +165,13 @@ def cargar_datos():
             actualizar_nombres_cortesias(db)
             flash(' | '.join(resultados), 'success')
         else:
-            flash('No se seleccionó ningún archivo.', 'error')
+            flash('No se seleccionó ningún archivo.', 'danger')
 
     except Exception as e:
         db.session.rollback()
         import logging
         logging.getLogger(__name__).error(f'Error al cargar datos COMPS: {e}')
-        flash('Error al cargar datos. Contacta al administrador.', 'error')
+        flash('Error al cargar datos. Contacta al administrador.', 'danger')
 
     return redirect(url_for('comps.comps_index'))
 
@@ -1541,7 +1541,7 @@ def exportar_generar():
     secciones = request.form.getlist('secciones')
 
     if not secciones:
-        flash('Selecciona al menos una sección.', 'error')
+        flash('Selecciona al menos una sección.', 'danger')
         return redirect(url_for('comps.exportar_reportes'))
 
     output = BytesIO()

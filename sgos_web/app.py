@@ -500,7 +500,7 @@ def dashboard(file_id):
         )
     except Exception as e:
         app.logger.error(f"Error en dashboard: {e}")
-        flash("Error al procesar el archivo. Contacta al administrador.", "error")
+        flash("Error al procesar el archivo. Contacta al administrador.", "danger")
         return redirect(url_for("index"))
 
 

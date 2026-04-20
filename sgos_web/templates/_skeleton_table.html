@@ -1,0 +1,19 @@
+{#
+  Skeleton loader rows for tables.
+  Usage:
+    {% include "_skeleton_table.html" with context %}
+    pass `skeleton_cols` and optional `skeleton_rows` in context, or rely on defaults.
+#}
+{% set _rows = skeleton_rows|default(6) %}
+{% set _cols = skeleton_cols|default(6) %}
+<div class="skeleton-layer" aria-hidden="true">
+  <table class="table table-sm mb-0">
+    <tbody>
+      {% for _ in range(_rows) %}
+      <tr class="skeleton-row">
+        {% for _c in range(_cols) %}<td><span class="skeleton"></span></td>{% endfor %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>

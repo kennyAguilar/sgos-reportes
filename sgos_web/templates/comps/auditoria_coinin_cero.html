@@ -99,7 +99,7 @@
           {% set caso_idx = loop.index %}
           <tr class="caso-row" data-caso="{{ caso_idx }}" style="cursor:pointer" title="Click para ver productos">
             <td class="text-nowrap"><i class="bi bi-chevron-right me-1 chevron-icon"></i>{{ r.jornada }}</td>
-            <td style="max-width:200px" class="text-truncate">{{ r.nombre_cliente }}</td>
+            <td style="max-width:360px; min-width:240px" class="text-truncate" title="{{ r.nombre_cliente }}">{{ r.nombre_cliente }}</td>
             <td class="text-danger fw-bold text-nowrap">${{ "{:,.0f}".format(r.coin_in or 0) }}</td>
             <td>{{ r.cant_cortesias }}</td>
             <td class="text-nowrap">${{ "{:,.0f}".format(r.monto_cortesias or 0) }}</td>
@@ -136,7 +136,9 @@ new Chart(document.getElementById('chartZero').getContext('2d'), {
     labels: {{ chart_labels|tojson }},
     datasets: [{
       data: {{ chart_cantidades|tojson }},
-      backgroundColor: ['#ef4444','#f59e0b','#3b82f6','#10b981','#8b5cf6','#ec4899','#06b6d4']
+      backgroundColor: window.SGOSChartTheme.palette,
+      borderColor: '#141B2D',
+      borderWidth: 2
     }]
   },
   options: {
@@ -145,7 +147,7 @@ new Chart(document.getElementById('chartZero').getContext('2d'), {
     plugins: {
       legend: {
         position: 'right',
-        labels: { color: '#e2e8f0', boxWidth: 14, padding: 10, font: { size: 12 } }
+        labels: { color: '#A8B2CE', boxWidth: 14, padding: 10, font: { size: 12 } }
       }
     }
   }
