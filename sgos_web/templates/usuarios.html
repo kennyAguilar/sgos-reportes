@@ -37,11 +37,11 @@
     <h5 class="card-title"><i class="bi bi-person-plus"></i> Crear nuevo usuario</h5>
     <form method="POST" action="{{ url_for('crear_usuario') }}" class="row g-3 align-items-end">
       <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-      <div class="col-md-4">
+      <div class="col-md-3">
         <label for="username-crear" class="form-label text-light">Usuario</label>
         <input type="text" id="username-crear" name="username" class="form-control" required autocomplete="off">
       </div>
-      <div class="col-md-4">
+      <div class="col-md-3">
         <label for="pwd-crear" class="form-label text-light">Contraseña</label>
         <div class="input-group">
           <input type="password" name="password" class="form-control" required id="pwd-crear" aria-label="Contraseña del nuevo usuario">
@@ -50,7 +50,15 @@
           </button>
         </div>
       </div>
-      <div class="col-md-4">
+      <div class="col-md-3 d-flex align-items-center">
+        <div class="form-check mt-4">
+          <input class="form-check-input" type="checkbox" id="is_admin_crear" name="is_admin" value="1">
+          <label class="form-check-label text-light" for="is_admin_crear">
+            <i class="bi bi-shield-lock"></i> Administrador
+          </label>
+        </div>
+      </div>
+      <div class="col-md-3">
         <button type="submit" class="btn btn-success w-100"><i class="bi bi-check-lg"></i> Crear</button>
       </div>
     </form>
@@ -67,6 +75,9 @@
           <tr>
             <th>ID</th>
             <th>Usuario</th>
+            <th>Admin</th>
+            <th>Creado</th>
+            <th>Último login</th>
             <th>Cambiar Contraseña</th>
             <th>Acciones</th>
           </tr>
@@ -79,6 +90,27 @@
               <i class="bi bi-person-circle text-info"></i> {{ u.username }}
               {% if u.id == current_user.id %}
                 <span class="badge bg-primary ms-1">Tú</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if u.is_admin %}
+                <span class="badge bg-warning text-dark"><i class="bi bi-shield-lock-fill"></i> Admin</span>
+              {% else %}
+                <span class="badge bg-secondary"><i class="bi bi-person"></i> Usuario</span>
+              {% endif %}
+            </td>
+            <td class="text-nowrap">
+              {% if u.created_at %}
+                <small class="text-light">{{ u.created_at.strftime('%d/%m/%Y %H:%M') }}</small>
+              {% else %}
+                <span class="text-muted">—</span>
+              {% endif %}
+            </td>
+            <td class="text-nowrap">
+              {% if u.last_login_at %}
+                <small class="text-light">{{ u.last_login_at.strftime('%d/%m/%Y %H:%M') }}</small>
+              {% else %}
+                <span class="text-muted">Nunca</span>
               {% endif %}
             </td>
             <td>
@@ -96,10 +128,20 @@
             </td>
             <td>
               {% if u.id != current_user.id %}
-              <form method="POST" action="{{ url_for('eliminar_usuario', user_id=u.id) }}" onsubmit="return confirm('¿Seguro que deseas eliminar a {{ u.username }}?')">
-                <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
-                <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i> Eliminar</button>
-              </form>
+              {% set accion_admin = 'Quitar' if u.is_admin else 'Otorgar' %}
+              <div class="d-flex gap-2">
+                <form method="POST" action="{{ url_for('toggle_admin', user_id=u.id) }}"
+                      onsubmit="return confirm('{{ accion_admin }} rol admin a {{ u.username }}?')">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button type="submit" class="btn btn-sm btn-outline-warning" title="{{ accion_admin }} admin">
+                    {% if u.is_admin %}<i class="bi bi-shield-slash"></i>{% else %}<i class="bi bi-shield-lock"></i>{% endif %}
+                  </button>
+                </form>
+                <form method="POST" action="{{ url_for('eliminar_usuario', user_id=u.id) }}" onsubmit="return confirm('¿Seguro que deseas eliminar a {{ u.username }}?')">
+                  <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
+                  <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i> Eliminar</button>
+                </form>
+              </div>
               {% else %}
               <span class="text-muted">—</span>
               {% endif %}

@@ -7,7 +7,8 @@ from io import BytesIO
 import pandas as pd
 from dotenv import load_dotenv
 from flask import Flask, render_template, request, redirect, url_for, send_file, flash, session, abort, jsonify
-from sqlalchemy import select, func, distinct
+from functools import wraps
+from sqlalchemy import select, func, distinct, text
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
@@ -100,12 +101,27 @@ class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(100), unique=True, nullable=False)
     password_hash = db.Column(db.String(200), nullable=False)
+    is_admin = db.Column(db.Boolean, nullable=False, default=False, server_default=text('false'))
+    created_at = db.Column(db.DateTime, nullable=True, server_default=func.now())
+    last_login_at = db.Column(db.DateTime, nullable=True)
 
     def set_password(self, password):
         self.password_hash = generate_password_hash(password)
 
     def check_password(self, password):
         return check_password_hash(self.password_hash, password)
+
+
+def admin_required(f):
+    """Requiere usuario autenticado y con is_admin=True."""
+    @wraps(f)
+    @login_required
+    def decorated(*args, **kwargs):
+        if not getattr(current_user, "is_admin", False):
+            flash("Acceso restringido a administradores.", "danger")
+            return redirect(url_for("home"))
+        return f(*args, **kwargs)
+    return decorated
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -260,9 +276,27 @@ with app.app_context():
     except Exception as _mig_err:
         print(f"[migración] aviso: {_mig_err}")
 
+    # Auto-migración ligera: añade columnas nuevas a users si faltan
+    try:
+        with db.engine.begin() as _conn:
+            _existentes_u = {c["name"] for c in db.inspect(db.engine).get_columns("users")}
+            _nuevas_u = {
+                "is_admin": "BOOLEAN NOT NULL DEFAULT FALSE",
+                "created_at": "TIMESTAMP",
+                "last_login_at": "TIMESTAMP",
+            }
+            for _col, _tipo in _nuevas_u.items():
+                if _col not in _existentes_u:
+                    _conn.exec_driver_sql(f"ALTER TABLE users ADD COLUMN {_col} {_tipo}")
+                    print(f"[migración] users: columna '{_col}' añadida")
+            # Backfill: usuarios legacy (is_admin IS NULL) quedan como admin.
+            _conn.exec_driver_sql("UPDATE users SET is_admin = TRUE WHERE is_admin IS NULL")
+    except Exception as _mig_err:
+        print(f"[migración users] aviso: {_mig_err}")
+
     # Crear usuario admin por defecto si no existe
     if not User.query.filter_by(username="admin").first():
-        admin = User(username="admin")
+        admin = User(username="admin", is_admin=True)
         default_pw = os.environ.get("ADMIN_DEFAULT_PASSWORD", "admin123")
         admin.set_password(default_pw)
         db.session.add(admin)
@@ -379,6 +413,12 @@ def login():
         
         if user and user.check_password(password):
             login_user(user)
+            try:
+                user.last_login_at = datetime.utcnow()
+                db.session.commit()
+            except Exception as _e:
+                db.session.rollback()
+                print(f"[login] aviso al actualizar last_login_at: {_e}")
             return redirect(url_for("home"))
         else:
             flash("Usuario o contraseña incorrectos.", "danger")
@@ -402,17 +442,18 @@ def home():
 # ─────────────────────────── Gestión de Usuarios ───────────────────────────
 
 @app.route("/usuarios")
-@login_required
+@admin_required
 def usuarios():
     users = User.query.order_by(User.username).all()
     return render_template("usuarios.html", users=users)
 
 
 @app.route("/usuarios/crear", methods=["POST"])
-@login_required
+@admin_required
 def crear_usuario():
     username = request.form.get("username", "").strip()
     password = request.form.get("password", "").strip()
+    is_admin_flag = request.form.get("is_admin") in ("1", "on", "true", "True")
     if not username or not password:
         flash("Usuario y contraseña son obligatorios.", "warning")
         return redirect(url_for("usuarios"))
@@ -423,7 +464,7 @@ def crear_usuario():
     if User.query.filter_by(username=username).first():
         flash(f"El usuario '{username}' ya existe.", "warning")
         return redirect(url_for("usuarios"))
-    user = User(username=username)
+    user = User(username=username, is_admin=is_admin_flag, created_at=datetime.utcnow())
     user.set_password(password)
     db.session.add(user)
     db.session.commit()
@@ -432,7 +473,7 @@ def crear_usuario():
 
 
 @app.route("/usuarios/eliminar/<int:user_id>", methods=["POST"])
-@login_required
+@admin_required
 def eliminar_usuario(user_id):
     user = db.session.get(User, user_id)
     if not user:
@@ -447,7 +488,7 @@ def eliminar_usuario(user_id):
 
 
 @app.route("/usuarios/cambiar-password/<int:user_id>", methods=["POST"])
-@login_required
+@admin_required
 def cambiar_password(user_id):
     user = db.session.get(User, user_id)
     if not user:
@@ -464,6 +505,29 @@ def cambiar_password(user_id):
     user.set_password(new_password)
     db.session.commit()
     flash(f"Contraseña de '{user.username}' actualizada.", "success")
+    return redirect(url_for("usuarios"))
+
+
+@app.route("/usuarios/toggle-admin/<int:user_id>", methods=["POST"])
+@admin_required
+def toggle_admin(user_id):
+    user = db.session.get(User, user_id)
+    if not user:
+        flash("Usuario no encontrado.", "danger")
+        return redirect(url_for("usuarios"))
+    if user.id == current_user.id:
+        flash("No puedes cambiar tu propio rol de administrador.", "warning")
+        return redirect(url_for("usuarios"))
+    # Si se va a quitar admin, asegurar que quede al menos un admin
+    if user.is_admin:
+        otros_admins = User.query.filter(User.is_admin.is_(True), User.id != user.id).count()
+        if otros_admins == 0:
+            flash("No se puede quitar el rol: debe existir al menos un administrador.", "warning")
+            return redirect(url_for("usuarios"))
+    user.is_admin = not user.is_admin
+    db.session.commit()
+    estado = "promovido a administrador" if user.is_admin else "ya no es administrador"
+    flash(f"Usuario '{user.username}' {estado}.", "success")
     return redirect(url_for("usuarios"))
 
 
