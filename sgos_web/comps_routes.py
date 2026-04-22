@@ -1528,6 +1528,7 @@ def _write_sheet(writer, rows, sheet_name, columns=None):
     if df.empty:
         return
     if columns:
+        df = df.drop(columns=['player_id'], errors='ignore')
         df.columns = columns
     df.to_excel(writer, sheet_name=sheet_name, index=False)
     _autosize_cols(writer, sheet_name)
