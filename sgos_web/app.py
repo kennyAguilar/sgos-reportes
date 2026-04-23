@@ -13,7 +13,7 @@ from sqlalchemy.pool import NullPool
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
-from flask_wtf.csrf import CSRFProtect
+from flask_wtf.csrf import CSRFProtect, CSRFError
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 
@@ -55,6 +55,13 @@ if not is_desktop and os.environ.get("FLASK_ENV") != "development":
 
 # Protección CSRF
 csrf = CSRFProtect(app)
+
+@app.errorhandler(CSRFError)
+def csrf_error(e):
+    """Cuando la sesión expiró o el servidor se reinició, redirige al login
+    con un mensaje amigable en lugar de mostrar "Bad Request"."""
+    flash("Tu sesión expiró. Por favor vuelve a ingresar.", "warning")
+    return redirect(url_for("login"))
 
 # Rate Limiting
 limiter = Limiter(get_remote_address, app=app, storage_uri="memory://")
@@ -438,7 +445,17 @@ def login():
     if request.method == "POST":
         username = request.form.get("username")
         password = request.form.get("password")
-        user = User.query.filter_by(username=username).first()
+        # Reintento simple por si Neon aún está terminando de despertar
+        from sqlalchemy.exc import OperationalError as _SAOpError
+        for _attempt in range(3):
+            try:
+                user = User.query.filter_by(username=username).first()
+                break
+            except _SAOpError:
+                if _attempt == 2:
+                    flash("La base de datos no respondió. Espera unos segundos e intenta de nuevo.", "danger")
+                    return render_template("login.html")
+                time.sleep(1.5)
         
         if user and user.check_password(password):
             login_user(user)
