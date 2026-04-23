@@ -21,7 +21,7 @@
         {% endif %}
       {% endwith %}
 
-      <form method="post">
+      <form method="post" id="login-form">
         <input type="hidden" name="csrf_token" value="{{ csrf_token() }}">
         <div class="mb-3">
           <label for="username" class="form-label">Usuario</label>
@@ -36,7 +36,11 @@
             </button>
           </div>
         </div>
-        <button type="submit" class="btn btn-primary btn-primary-full">Ingresar</button>
+        <button type="submit" class="btn btn-primary btn-primary-full" id="btn-login">
+          <span id="btn-login-text">Ingresar</span>
+          <span id="btn-login-spinner" class="spinner-border spinner-border-sm d-none" role="status" aria-hidden="true"></span>
+        </button>
+        <div id="db-status" class="form-text mt-2 text-muted"></div>
       </form>
     </div>
   </div>
@@ -53,6 +57,56 @@
       icon.classList.replace('bi-eye-slash', 'bi-eye');
     }
   }
+
+  // Despierta la BD de Neon (que se duerme tras inactividad) antes de enviar
+  // las credenciales. Reintenta con backoff hasta ~23s.
+  (function() {
+    const form    = document.getElementById('login-form');
+    const btn     = document.getElementById('btn-login');
+    const btnTxt  = document.getElementById('btn-login-text');
+    const spinner = document.getElementById('btn-login-spinner');
+    const status  = document.getElementById('db-status');
+
+    async function waitForDb() {
+      const delays = [0, 800, 1500, 2500, 4000, 6000, 8000];
+      for (let i = 0; i < delays.length; i++) {
+        if (delays[i]) await new Promise(r => setTimeout(r, delays[i]));
+        try {
+          const r = await fetch('/db/ping', { cache: 'no-store' });
+          if (r.ok) {
+            const j = await r.json();
+            if (j.ready) return { ok: true, ms: j.elapsed_ms };
+          }
+        } catch (_) { /* red caída, seguimos reintentando */ }
+        status.textContent = 'Despertando base de datos… (intento ' + (i + 1) + ')';
+      }
+      return { ok: false };
+    }
+
+    form.addEventListener('submit', async function(ev) {
+      if (btn.dataset.ready === '1') return; // ya verificada, deja que envíe
+
+      ev.preventDefault();
+      btn.disabled = true;
+      spinner.classList.remove('d-none');
+      btnTxt.textContent = 'Conectando…';
+      status.textContent = 'Verificando base de datos…';
+
+      const res = await waitForDb();
+
+      if (res.ok) {
+        status.textContent = 'Base de datos lista (' + res.ms + ' ms). Ingresando…';
+        btnTxt.textContent = 'Ingresando…';
+        btn.dataset.ready = '1';
+        form.submit();
+      } else {
+        status.textContent = 'No se pudo conectar a la base de datos. Intenta nuevamente.';
+        btnTxt.textContent = 'Reintentar';
+        spinner.classList.add('d-none');
+        btn.disabled = false;
+      }
+    });
+  })();
   </script>
 </body>
 </html>

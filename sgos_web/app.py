@@ -88,6 +88,11 @@ if not db_url:
 app.config['SQLALCHEMY_DATABASE_URI'] = db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
+# pool_pre_ping: valida la conexión justo antes de usarla. Si Neon estaba dormida
+# y la conexión murió, SQLAlchemy abre otra automáticamente sin lanzar el error
+# "SSL connection has been closed unexpectedly".
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {'pool_pre_ping': True}
+
 try:
     from sgos_web.extensions import db
 except ImportError:
@@ -398,6 +403,28 @@ def service_worker():
 @app.route("/health")
 def health():
     return "OK", 200
+
+
+@app.route("/db/ping")
+@limiter.limit("30 per minute")
+def db_ping():
+    """Despierta Neon si está dormida. El login lo llama antes de enviar credenciales.
+
+    Devuelve 200 {ready: true} cuando la BD responde, o 503 {ready: false} si aún
+    no respondió (el cliente reintenta).
+    """
+    import time as _t
+    t0 = _t.monotonic()
+    try:
+        with db.engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+        return jsonify({"ready": True, "elapsed_ms": int((_t.monotonic() - t0) * 1000)})
+    except Exception as e:
+        return jsonify({
+            "ready": False,
+            "elapsed_ms": int((_t.monotonic() - t0) * 1000),
+            "error": type(e).__name__,
+        }), 503
 
 
 @app.route("/login", methods=["GET", "POST"])
