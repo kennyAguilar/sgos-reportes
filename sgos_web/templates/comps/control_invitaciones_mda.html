@@ -82,10 +82,10 @@
   <div class="card-body">
     <h5 class="card-title">Detalle MDA — Días totales: {{ dias_totales }}</h5>
     <div class="table-responsive">
-      <table class="table table-dark table-striped table-hover table-sm sortable" style="min-width: 1200px;">
+      <table class="table table-dark table-striped table-hover table-sm sortable" style="width: 100%; table-layout: fixed;">
         <colgroup>
-          <col style="width: 22%;">
-          <col style="width: 9%;">
+          <col style="width: 18%;">
+          <col style="width: 8%;">
           <col style="width: 5%;">
           <col style="width: 6%;">
           <col style="width: 10%;">
@@ -93,8 +93,8 @@
           <col style="width: 9%;">
           <col style="width: 9%;">
           <col style="width: 9%;">
-          <col style="width: 6%;">
-          <col style="width: 8%;">
+          <col style="width: 7%;">
+          <col style="width: 12%;">
         </colgroup>
         <thead>
           <tr>
@@ -109,10 +109,10 @@
           {% set outer_idx = loop.index %}
           {% if jefe_actual and prods_por_cliente %}
           <tr class="caso-row {{ 'table-danger' if r.saldo < 0 else '' }}" data-caso="{{ outer_idx }}" style="cursor:pointer" title="Click para ver productos">
-            <td class="text-nowrap"><i class="bi bi-chevron-right me-1 chevron-icon"></i>{{ r.nombre }}</td>
+            <td><i class="bi bi-chevron-right me-1 chevron-icon"></i>{{ r.nombre }}</td>
           {% else %}
           <tr class="{{ 'table-danger' if r.saldo < 0 else '' }}">
-            <td class="text-nowrap">{{ r.nombre }}</td>
+            <td>{{ r.nombre }}</td>
           {% endif %}
             <td><span class="badge bg-info">{{ r.nivel }}</span></td>
             <td>{{ r.dias_asistidos }}</td>
