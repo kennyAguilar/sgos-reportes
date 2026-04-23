@@ -9,6 +9,7 @@ from dotenv import load_dotenv
 from flask import Flask, render_template, request, redirect, url_for, send_file, flash, session, abort, jsonify
 from functools import wraps
 from sqlalchemy import select, func, distinct, text
+from sqlalchemy.pool import NullPool
 from werkzeug.utils import secure_filename
 from werkzeug.security import generate_password_hash, check_password_hash
 from flask_login import LoginManager, UserMixin, login_user, login_required, logout_user, current_user
@@ -88,10 +89,11 @@ if not db_url:
 app.config['SQLALCHEMY_DATABASE_URI'] = db_url
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
 
-# pool_pre_ping: valida la conexión justo antes de usarla. Si Neon estaba dormida
-# y la conexión murió, SQLAlchemy abre otra automáticamente sin lanzar el error
-# "SSL connection has been closed unexpectedly".
-app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {'pool_pre_ping': True}
+# NullPool: sin pool de conexiones. Cada request abre su propia conexión y la
+# cierra al terminar. Elimina por completo los errores "SSL connection has been
+# closed unexpectedly" de Neon serverless, donde las conexiones del pool se
+# quedan obsoletas cuando el cómputo entra en suspensión.
+app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {'poolclass': NullPool}
 
 try:
     from sgos_web.extensions import db
