@@ -72,8 +72,24 @@
   <div class="col-md-6">
     <div class="card h-100">
       <div class="card-body">
-        <h5 class="card-title">Premios por Día</h5>
-        <canvas id="chartDia" height="250"></canvas>
+        <div class="d-flex justify-content-between align-items-center mb-2">
+          <h5 class="card-title mb-0">Promedio de Premios por Día de la Semana <span class="badge bg-info text-dark ms-1">Promedio</span></h5>
+          <small class="text-muted">Monto promedio por jornada</small>
+        </div>
+        <div class="alert alert-secondary border-secondary small mb-3" role="alert">
+          <i class="bi bi-info-circle"></i>
+          <strong>¿Cómo se calcula?</strong>
+          Se suma el monto total de premios de cada día de la semana en el rango filtrado y se divide entre la
+          cantidad de fechas únicas de ese día. Ej: promedio del Viernes = (suma de todos los viernes) ÷ nº de viernes.
+          <div class="mt-2">
+            {% for r in por_dow %}
+              <span class="badge bg-dark border border-secondary me-1" title="Cantidad de {{ r.dia_semana }} en los datos">
+                {{ r.dia_semana[:3] }}: n={{ r.n_fechas }}
+              </span>
+            {% endfor %}
+          </div>
+        </div>
+        <canvas id="chartDow" height="250"></canvas>
       </div>
     </div>
   </div>
@@ -153,25 +169,64 @@ new Chart(document.getElementById('chartTipo').getContext('2d'), {
     }
   }
 });
-// Premios por día
-new Chart(document.getElementById('chartDia').getContext('2d'), {
+// Promedio de premios por día de la semana
+const dowLabels = {{ por_dow|map(attribute='dia_semana')|list|tojson }};
+const dowN = {{ por_dow|map(attribute='n_fechas')|list|tojson }};
+const dowMontoProm = {{ por_dow|map(attribute='monto_promedio')|list|tojson }};
+const dowCantProm = {{ por_dow|map(attribute='cantidad_promedio')|list|tojson }};
+new Chart(document.getElementById('chartDow').getContext('2d'), {
   type: 'bar',
   data: {
-    labels: {{ por_dia|map(attribute='fecha_jornada')|list|tojson }},
-    datasets: [{
-      label: 'Monto',
-      data: {{ por_dia|map(attribute='monto_total')|list|tojson }},
-      backgroundColor: 'rgba(245,158,11,0.6)',
-      borderColor: '#f59e0b',
-      borderWidth: 1
-    }]
+    labels: dowLabels.map((d, i) => `${d} (n=${dowN[i]})`),
+    datasets: [
+      {
+        label: 'Monto Promedio ($)',
+        data: dowMontoProm,
+        backgroundColor: 'rgba(245,158,11,0.6)',
+        borderColor: '#f59e0b',
+        borderWidth: 1,
+        yAxisID: 'y'
+      },
+      {
+        label: 'Cantidad Promedio (premios)',
+        data: dowCantProm,
+        backgroundColor: 'rgba(139,92,246,0.6)',
+        borderColor: '#8b5cf6',
+        borderWidth: 1,
+        yAxisID: 'y1'
+      }
+    ]
   },
   options: {
     responsive: true,
-    plugins: { legend: { labels: { color: '#e2e8f0' } } },
+    plugins: {
+      legend: { labels: { color: '#e2e8f0' } },
+      tooltip: {
+        callbacks: {
+          label: function(ctx) {
+            const v = ctx.parsed.y;
+            if (ctx.dataset.label.startsWith('Monto')) {
+              return `${ctx.dataset.label}: $${Math.round(v).toLocaleString()}`;
+            }
+            return `${ctx.dataset.label}: ${v.toFixed(1)}`;
+          }
+        }
+      }
+    },
     scales: {
       x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(148,163,184,0.1)' } },
-      y: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(148,163,184,0.1)' } }
+      y: {
+        position: 'left',
+        ticks: { color: '#f59e0b', callback: v => '$' + Math.round(v).toLocaleString() },
+        grid: { color: 'rgba(148,163,184,0.1)' },
+        title: { display: true, text: 'Monto promedio ($)', color: '#f59e0b' }
+      },
+      y1: {
+        position: 'right',
+        ticks: { color: '#8b5cf6' },
+        grid: { drawOnChartArea: false },
+        title: { display: true, text: 'Cantidad promedio', color: '#8b5cf6' }
+      }
     }
   }
 });

@@ -364,39 +364,71 @@ DIAS_SEMANA_ES = ["Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado
 
 
 def heatmap_dia_hora(df: pd.DataFrame) -> dict:
-    """Matriz 7 días × 24 horas con operaciones y monto para heatmap.
+    """Matriz 7 días × 24 horas con PROMEDIOS de operaciones y monto para heatmap.
+
+    El promedio se calcula dividiendo el total acumulado en cada celda (día × hora)
+    entre la cantidad de fechas únicas (jornadas) de ese día de la semana presentes
+    en los datos. Por ejemplo, si en el rango hay 8 viernes distintos, las celdas
+    de la fila "Viernes" se dividen entre 8.
 
     Retorna dict con:
       - dias: lista de nombres de días (lunes→domingo)
       - horas: lista de horas ordenadas (10..23, 0..8)
-      - ops: matriz [día][hora] con número de operaciones
-      - monto: matriz [día][hora] con suma de monto
-      - max_ops: valor máximo de operaciones (para escalar intensidad)
+      - ops: matriz [día][hora] con PROMEDIO de operaciones (float, 1 decimal)
+      - monto: matriz [día][hora] con PROMEDIO de monto
+      - max_ops: valor máximo del promedio de operaciones (para escalar intensidad)
+      - semanas_por_dia: lista de 7 enteros con la cantidad de fechas únicas por día
+      - total_jornadas: cantidad total de fechas únicas en los datos
+      - rango_fechas: dict {desde, hasta} con las fechas mínima y máxima
     """
     horas = ORDEN_HORAS[:]
-    ops = [[0] * len(horas) for _ in range(7)]
+    ops = [[0.0] * len(horas) for _ in range(7)]
     monto = [[0.0] * len(horas) for _ in range(7)]
+    semanas_por_dia = [0] * 7
 
     if df is None or df.empty or "JornadaDia" not in df.columns or "Hora" not in df.columns:
-        return {"dias": DIAS_SEMANA_ES, "horas": horas, "ops": ops, "monto": monto, "max_ops": 0}
+        return {
+            "dias": DIAS_SEMANA_ES, "horas": horas, "ops": ops, "monto": monto,
+            "max_ops": 0, "semanas_por_dia": semanas_por_dia,
+            "total_jornadas": 0, "rango_fechas": {"desde": None, "hasta": None},
+        }
 
     tmp = df[["JornadaDia", "Hora", "Monto"]].copy()
-    tmp["dow"] = pd.to_datetime(tmp["JornadaDia"]).dt.dayofweek  # 0=lunes
+    tmp["JornadaDia"] = pd.to_datetime(tmp["JornadaDia"])
+    tmp["dow"] = tmp["JornadaDia"].dt.dayofweek  # 0=lunes
+
+    # Contar fechas únicas por día de la semana
+    fechas_unicas = tmp[["JornadaDia", "dow"]].drop_duplicates()
+    conteo = fechas_unicas.groupby("dow").size().to_dict()
+    for d in range(7):
+        semanas_por_dia[d] = int(conteo.get(d, 0))
+
     g = tmp.groupby(["dow", "Hora"]).agg(ops=("Monto", "size"), monto=("Monto", "sum")).reset_index()
 
     hora_idx = {h: i for i, h in enumerate(horas)}
-    max_ops = 0
+    max_ops = 0.0
     for _, r in g.iterrows():
         d = int(r["dow"])
         h_i = hora_idx.get(int(r["Hora"]))
         if h_i is None or d < 0 or d > 6:
             continue
-        ops[d][h_i] = int(r["ops"])
-        monto[d][h_i] = float(r["monto"])
+        n = semanas_por_dia[d] or 1
+        ops[d][h_i] = float(r["ops"]) / n
+        monto[d][h_i] = float(r["monto"]) / n
         if ops[d][h_i] > max_ops:
             max_ops = ops[d][h_i]
 
-    return {"dias": DIAS_SEMANA_ES, "horas": horas, "ops": ops, "monto": monto, "max_ops": max_ops}
+    rango = {
+        "desde": tmp["JornadaDia"].min().strftime("%Y-%m-%d"),
+        "hasta": tmp["JornadaDia"].max().strftime("%Y-%m-%d"),
+    }
+    total_jornadas = int(fechas_unicas["JornadaDia"].nunique())
+
+    return {
+        "dias": DIAS_SEMANA_ES, "horas": horas, "ops": ops, "monto": monto,
+        "max_ops": max_ops, "semanas_por_dia": semanas_por_dia,
+        "total_jornadas": total_jornadas, "rango_fechas": rango,
+    }
 
 
 def ratio_getnet_premios(df_getnet: pd.DataFrame, df_premios: pd.DataFrame) -> dict:

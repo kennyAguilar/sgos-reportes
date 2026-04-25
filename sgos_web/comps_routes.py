@@ -284,17 +284,38 @@ def analisis_cortesias():
 
     dias_semana = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
     por_dia = []
+    # Acumuladores para promedio por día de la semana
+    sum_monto_dow = [0.0] * 7
+    sum_cant_dow = [0] * 7
+    fechas_unicas_dow = [set() for _ in range(7)]
     for d in por_dia_raw:
         row = dict(d)
         fecha_str = str(row['fecha_jornada'])
         try:
             fecha = datetime.strptime(fecha_str, '%Y-%m-%d')
-            row['dia_semana'] = dias_semana[fecha.weekday()]
+            dow = fecha.weekday()
+            row['dia_semana'] = dias_semana[dow]
+            sum_monto_dow[dow] += float(row.get('monto_total') or 0)
+            sum_cant_dow[dow] += int(row.get('cantidad') or 0)
+            fechas_unicas_dow[dow].add(fecha_str)
         except Exception:
             row['dia_semana'] = ''
         row['coin_in_mda'] = mda_por_fecha.get(fecha_str, 0)
         row['coin_in_mdy'] = mdy_por_fecha.get(fecha_str, 0)
         por_dia.append(row)
+
+    # Promedio por día de la semana
+    por_dow = []
+    for i, nombre in enumerate(dias_semana):
+        n = len(fechas_unicas_dow[i])
+        por_dow.append({
+            'dia_semana': nombre,
+            'n_fechas': n,
+            'monto_promedio': (sum_monto_dow[i] / n) if n else 0.0,
+            'cantidad_promedio': (sum_cant_dow[i] / n) if n else 0.0,
+            'monto_total': sum_monto_dow[i],
+            'cantidad_total': sum_cant_dow[i],
+        })
 
     totales = _exec_one(f"""
         SELECT COUNT(*) as total_cortesias,
@@ -313,6 +334,7 @@ def analisis_cortesias():
                            por_categoria=por_categoria,
                            productos_por_cat=productos_por_cat,
                            por_dia=por_dia,
+                           por_dow=por_dow,
                            totales=totales,
                            total_coin_in=total_coin_in_combined,
                            anios=anios, meses_disp=meses_disp,
@@ -389,6 +411,33 @@ def analisis_premios():
         ORDER BY fecha_jornada
     """, dia_params)
 
+    # Promedio por día de la semana (Lunes..Domingo)
+    dias_semana = ['Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado', 'Domingo']
+    sum_monto_dow = [0.0] * 7
+    sum_cant_dow = [0] * 7
+    fechas_unicas_dow = [set() for _ in range(7)]
+    for d in por_dia:
+        fecha_str = str(d['fecha_jornada'])
+        try:
+            fecha = datetime.strptime(fecha_str, '%Y-%m-%d')
+            dow = fecha.weekday()
+            sum_monto_dow[dow] += float(d.get('monto_total') or 0)
+            sum_cant_dow[dow] += int(d.get('cantidad') or 0)
+            fechas_unicas_dow[dow].add(fecha_str)
+        except Exception:
+            continue
+    por_dow = []
+    for i, nombre in enumerate(dias_semana):
+        n = len(fechas_unicas_dow[i])
+        por_dow.append({
+            'dia_semana': nombre,
+            'n_fechas': n,
+            'monto_promedio': (sum_monto_dow[i] / n) if n else 0.0,
+            'cantidad_promedio': (sum_cant_dow[i] / n) if n else 0.0,
+            'monto_total': sum_monto_dow[i],
+            'cantidad_total': sum_cant_dow[i],
+        })
+
     totales = _exec_one(f"""
         SELECT COUNT(*) as total_premios,
                SUM(transferencia_final) as monto_total,
@@ -400,6 +449,7 @@ def analisis_premios():
                            por_jugador=por_jugador,
                            por_tipo=por_tipo,
                            por_dia=por_dia,
+                           por_dow=por_dow,
                            totales=totales,
                            anios=anios, meses_disp=meses_disp,
                            anio_actual=anio, mes_actual=mes)
