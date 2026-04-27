@@ -1,5 +1,6 @@
 import os
 import gc
+import re
 import time
 import uuid
 from datetime import datetime
@@ -45,6 +46,58 @@ except ImportError:
 app = Flask(__name__)
 app.secret_key = os.environ.get("FLASK_SECRET_KEY") or os.urandom(32).hex()
 
+# --- Mobile / device detection ---------------------------------------------
+# Feature flag: permite apagar todo el comportamiento m\u00f3vil sin redeploy.
+# En Render configurar SGOS_MOBILE_ENABLED=0 si hay que hacer rollback r\u00e1pido.
+app.config['MOBILE_ENABLED'] = os.environ.get("SGOS_MOBILE_ENABLED", "1") != "0"
+
+# Versi\u00f3n de assets para cache busting de CSS/JS. Render expone RENDER_GIT_COMMIT.
+app.config['ASSET_VERSION'] = (
+    os.environ.get("RENDER_GIT_COMMIT")
+    or os.environ.get("ASSET_VERSION")
+    or str(int(time.time()))
+)[:12]
+
+_MOBILE_UA_RE = re.compile(
+    r"Mobi|Android|iPhone|iPod|Opera Mini|IEMobile|Windows Phone|BlackBerry",
+    re.IGNORECASE,
+)
+_TABLET_UA_RE = re.compile(r"iPad|Tablet|Kindle|Silk|PlayBook", re.IGNORECASE)
+
+
+def parse_device(ua_string):
+    """Devuelve dict con flags is_mobile/is_tablet/is_desktop a partir del User-Agent.
+
+    Sin dependencias externas. Resistente a UA vac\u00edos. El CSS sigue siendo la
+    fuente principal de adaptaci\u00f3n; esta detecci\u00f3n solo activa piezas
+    espec\u00edficas (bottom-nav, off-canvas, etc.).
+    """
+    ua = ua_string or ""
+    is_tablet = bool(_TABLET_UA_RE.search(ua)) or bool(
+        re.search(r"Android", ua, re.IGNORECASE) and not re.search(r"Mobi", ua, re.IGNORECASE)
+    )
+    is_mobile = bool(_MOBILE_UA_RE.search(ua)) and not is_tablet
+    if "iPhone" in ua or "iPod" in ua:
+        device_os = "ios"
+    elif "iPad" in ua:
+        device_os = "ios"
+    elif re.search(r"Android", ua, re.IGNORECASE):
+        device_os = "android"
+    elif re.search(r"Windows", ua, re.IGNORECASE):
+        device_os = "windows"
+    elif re.search(r"Mac OS X", ua, re.IGNORECASE):
+        device_os = "macos"
+    elif re.search(r"Linux", ua, re.IGNORECASE):
+        device_os = "linux"
+    else:
+        device_os = "unknown"
+    return {
+        "is_mobile": is_mobile,
+        "is_tablet": is_tablet,
+        "is_desktop": not (is_mobile or is_tablet),
+        "os": device_os,
+    }
+
 # Cookies de sesión seguras
 app.config['SESSION_COOKIE_HTTPONLY'] = True
 app.config['SESSION_COOKIE_SAMESITE'] = 'Lax'
@@ -65,8 +118,6 @@ def csrf_error(e):
 
 # Rate Limiting
 limiter = Limiter(get_remote_address, app=app, storage_uri="memory://")
-
-import re
 
 MIN_PASSWORD_LENGTH = 9
 
@@ -402,6 +453,41 @@ def set_security_headers(response):
     if os.environ.get("FLASK_ENV") != "development":
         response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
     return response
+
+
+@app.context_processor
+def inject_device():
+    """Expone is_mobile / is_tablet / is_desktop / device_os / asset_version
+    a todas las plantillas Jinja (incluye blueprint comps).
+
+    Si MOBILE_ENABLED=False, fuerza is_mobile=False para apagar el rollout.
+    """
+    device = parse_device(request.headers.get("User-Agent", "") if request else "")
+    if not app.config.get("MOBILE_ENABLED", True):
+        device = {"is_mobile": False, "is_tablet": False, "is_desktop": True, "os": device.get("os", "unknown")}
+    return {
+        "is_mobile": device["is_mobile"],
+        "is_tablet": device["is_tablet"],
+        "is_desktop": device["is_desktop"],
+        "device_os": device["os"],
+        "mobile_enabled": app.config.get("MOBILE_ENABLED", True),
+        "asset_version": app.config.get("ASSET_VERSION", "0"),
+    }
+
+
+@app.route("/api/device")
+@login_required
+def api_device():
+    """Endpoint diagn\u00f3stico para QA: devuelve la detecci\u00f3n actual.
+    Requiere autenticaci\u00f3n para no exponer info al p\u00fablico.
+    """
+    device = parse_device(request.headers.get("User-Agent", ""))
+    return jsonify({
+        **device,
+        "mobile_enabled": app.config.get("MOBILE_ENABLED", True),
+        "asset_version": app.config.get("ASSET_VERSION", "0"),
+        "ua": request.headers.get("User-Agent", ""),
+    })
 
 
 @app.route("/sw.js")

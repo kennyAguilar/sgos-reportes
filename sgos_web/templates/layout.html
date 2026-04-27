@@ -18,7 +18,7 @@
   <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
 
   <!-- Custom CSS -->
-  <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+  <link href="{{ url_for('static', filename='css/style.css') }}?v={{ asset_version }}" rel="stylesheet">
 
   <!-- PWA -->
   <link rel="manifest" href="/static/manifest.webmanifest" type="application/manifest+json">
@@ -29,17 +29,22 @@
 
   {% block extra_css %}{% endblock %}
 </head>
-<body>
+<body class="{{ 'is-mobile' if is_mobile else ('is-tablet' if is_tablet else 'is-desktop') }} device-os-{{ device_os }}">
 
   <!-- Navbar -->
   {% block navbar %}
   <nav class="navbar navbar-expand-lg navbar-custom sticky-top">
     <div class="container">
       <a class="navbar-brand" href="{{ url_for('home') }}">SGOS</a>
-      <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-label="Toggle navigation">
+      <button class="navbar-toggler" type="button" data-bs-toggle="offcanvas" data-bs-target="#navOffcanvas" aria-controls="navOffcanvas" aria-label="Abrir menú">
         <span class="navbar-toggler-icon navbar-toggler-icon-custom"></span>
       </button>
-      <div class="collapse navbar-collapse" id="navbarNav">
+      <div class="offcanvas offcanvas-end navbar-offcanvas" tabindex="-1" id="navOffcanvas" aria-labelledby="navOffcanvasLabel">
+        <div class="offcanvas-header d-lg-none">
+          <h5 class="offcanvas-title" id="navOffcanvasLabel">SGOS</h5>
+          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="offcanvas" aria-label="Cerrar"></button>
+        </div>
+        <div class="offcanvas-body">
         <ul class="navbar-nav me-auto">
           <li class="nav-item">
             <a class="nav-link {{ 'active' if request.endpoint == 'index' }}" href="{{ url_for('index') }}">
@@ -92,7 +97,8 @@
             </ul>
           </li>
         </ul>
-      </div>
+        </div><!-- /offcanvas-body -->
+      </div><!-- /offcanvas -->
     </div>
   </nav>
   {% endblock %}
@@ -117,6 +123,10 @@
   <!-- Toast container (populated by sgos-ui.js) -->
   <div class="toast-container sgos-toasts" aria-live="polite" aria-atomic="true"></div>
 
+  {% if is_mobile and current_user.is_authenticated %}
+    {% include '_bottom_nav.html' %}
+  {% endif %}
+
   <!-- Global loading overlay -->
   <div id="global-loader" class="global-loader" role="status" aria-live="polite" aria-label="Procesando" hidden>
     <div class="global-loader__box">
@@ -126,8 +136,8 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-  <script src="{{ url_for('static', filename='js/sortable.js') }}"></script>
-  <script src="{{ url_for('static', filename='js/sgos-ui.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/sortable.js') }}?v={{ asset_version }}"></script>
+  <script src="{{ url_for('static', filename='js/sgos-ui.js') }}?v={{ asset_version }}"></script>
   <script>
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js');

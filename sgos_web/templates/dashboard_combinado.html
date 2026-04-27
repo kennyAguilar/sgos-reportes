@@ -81,7 +81,7 @@
         </div>
         <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table table-dark table-striped mb-0 align-middle">
+                <table class="table table-dark table-striped table-stack mb-0 align-middle">
                     <thead>
                         <tr>
                             <th>Mes</th>
@@ -97,13 +97,13 @@
                         {% set p = ratio.premios_monto[i] %}
                         {% set r = ratio.ratio_pct[i] %}
                         <tr>
-                            <td>{{ ratio.labels[i] }}</td>
-                            <td class="text-end tabular-nums">${{ '{:,.0f}'.format(g) }}</td>
-                            <td class="text-end tabular-nums">${{ '{:,.0f}'.format(p) }}</td>
-                            <td class="text-end tabular-nums {{ 'text-danger' if (g - p) < 0 else 'text-success' }}">
+                            <td data-label="Mes">{{ ratio.labels[i] }}</td>
+                            <td data-label="Getnet" class="text-end tabular-nums">${{ '{:,.0f}'.format(g) }}</td>
+                            <td data-label="Premios" class="text-end tabular-nums">${{ '{:,.0f}'.format(p) }}</td>
+                            <td data-label="Neto" class="text-end tabular-nums {{ 'text-danger' if (g - p) < 0 else 'text-success' }}">
                                 ${{ '{:,.0f}'.format(g - p) }}
                             </td>
-                            <td class="text-end tabular-nums">
+                            <td data-label="Ratio" class="text-end tabular-nums">
                                 {% if r is not none %}
                                     <span class="badge {{ 'bg-danger' if r > 100 else 'bg-warning text-dark' if r > 80 else 'bg-success' }}">
                                         {{ '{:.2f}'.format(r) }}%

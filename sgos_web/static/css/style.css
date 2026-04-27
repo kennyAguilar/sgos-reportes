@@ -903,20 +903,235 @@ body.login-page {
 .text-light.opacity-75 { color: var(--text-secondary) !important; opacity: 1 !important; }
 
 /* ==========================================================================
-   Responsive
+   Responsive — Mobile-first refinement
    ========================================================================== */
 
+/* Mejoras universales (desktop-friendly): touch-targets, scroll, fontes */
+.btn, .nav-link, .dropdown-item, .form-control, .form-select {
+  /* No forzamos min-height en desktop; solo en móvil más abajo. */
+}
+
+/* Off-canvas del navbar (cuando aplica en móvil). En desktop conserva su look. */
+.navbar-offcanvas {
+  background: var(--surface-1);
+  color: var(--text-primary);
+  border-left: 1px solid var(--border-subtle);
+}
+.navbar-offcanvas .offcanvas-header {
+  border-bottom: 1px solid var(--border-subtle);
+}
+.navbar-offcanvas .offcanvas-title {
+  color: var(--gold);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+@media (min-width: 992px) {
+  /* En desktop, el .offcanvas dentro de un navbar-expand-lg no debe comportarse
+     como panel: Bootstrap ya lo hace, solo aseguramos visual transparente. */
+  .navbar-offcanvas {
+    background: transparent;
+    border: 0;
+  }
+}
+
+/* Indicador de scroll horizontal en .table-responsive */
+.table-responsive {
+  position: relative;
+}
+.table-responsive::after {
+  content: "";
+  position: absolute;
+  top: 0; right: 0; bottom: 0;
+  width: 24px;
+  pointer-events: none;
+  background: linear-gradient(to left, rgba(20, 27, 45, 0.85), transparent);
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+/* Wrapper genérico para gráficos */
+.chart-wrap {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  min-height: 220px;
+}
+
+/* ==========================================================================
+   Tablet (≤1024px)
+   ========================================================================== */
+@media (max-width: 1024px) {
+  .container { padding-left: 16px; padding-right: 16px; }
+  .header-dashboard h1 { font-size: clamp(1.2rem, 2.6vw, 1.6rem); }
+}
+
+/* ==========================================================================
+   Mobile (≤768px)
+   ========================================================================== */
 @media (max-width: 768px) {
   body { font-size: 14px; }
+  .container { padding-left: 12px; padding-right: 12px; }
+  .container.py-4 { padding-top: 14px !important; padding-bottom: 14px !important; }
+
+  /* Tipografía fluida */
   .hero { padding: var(--s-5) var(--s-4); }
-  .hero h1 { font-size: 1.85rem; }
+  .hero h1 { font-size: clamp(1.6rem, 6vw, 2rem); }
   .header-dashboard { padding: var(--s-4); }
-  .header-dashboard h1 { font-size: 1.4rem; }
-  .action-bar { flex-direction: column; gap: 10px; }
+  .header-dashboard h1 { font-size: clamp(1.15rem, 4.5vw, 1.4rem); }
+  h1, .h1 { font-size: clamp(1.4rem, 5vw, 1.8rem); }
+  h2, .h2 { font-size: clamp(1.2rem, 4vw, 1.5rem); }
+
+  /* Touch targets ≥44px y texto cómodo en formularios */
+  .btn,
+  .nav-link,
+  .dropdown-item,
+  .form-control,
+  .form-select {
+    min-height: 44px;
+  }
+  .form-control, .form-select, .form-control-lg, input, textarea, select {
+    font-size: 16px; /* anti-zoom iOS */
+  }
+  .btn-sm { min-height: 36px; }
+
+  /* Action bar apilada */
+  .action-bar { flex-direction: column; gap: 10px; align-items: stretch; }
   .btn-custom, .action-bar .btn { width: 100%; }
   .card-body { padding: var(--s-4); }
   .login-card .card-body { padding: var(--s-5); }
-  .toast-container.sgos-toasts { left: 12px; right: 12px; bottom: 12px; max-width: none; }
+  .toast-container.sgos-toasts { left: 12px; right: 12px; bottom: calc(72px + env(safe-area-inset-bottom)); max-width: none; }
+
+  /* Bottom-nav reserva espacio */
+  body.is-mobile { padding-bottom: calc(64px + env(safe-area-inset-bottom)); }
+
+  /* Indicador scroll horizontal visible solo si hay contenido desbordado */
+  .table-responsive::after { opacity: 1; }
+
+  /* ====== Patrón table-stack: una fila = una tarjeta ====== */
+  table.table-stack thead { display: none; }
+  table.table-stack,
+  table.table-stack tbody,
+  table.table-stack tr,
+  table.table-stack td {
+    display: block;
+    width: 100%;
+  }
+  table.table-stack tr {
+    background: var(--surface-2);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--r-md);
+    margin-bottom: 10px;
+    padding: 8px 12px;
+    box-shadow: var(--shadow-sm);
+  }
+  table.table-stack td {
+    border: 0;
+    padding: 6px 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 12px;
+    text-align: right;
+    color: var(--text-primary);
+  }
+  table.table-stack td::before {
+    content: attr(data-label);
+    font-weight: 600;
+    color: var(--text-secondary);
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    text-align: left;
+    flex: 0 0 auto;
+  }
+  /* Celdas marcadas como acción ocupan ancho completo (ej. botones eliminar). */
+  table.table-stack td.cell-actions {
+    justify-content: flex-end;
+  }
+  table.table-stack td.cell-actions::before {
+    display: none;
+  }
+
+  /* Cards con grid se apilan */
+  .checkbox-group { grid-template-columns: 1fr; }
+}
+
+/* ==========================================================================
+   Small Mobile (≤480px) — ajustes finos
+   ========================================================================== */
+@media (max-width: 480px) {
+  .navbar-brand { font-size: 1.05rem; }
+  .icon-large { font-size: 2.6rem; }
+  .kpi-value { font-size: 1.25rem; }
+  .bottom-nav__label { font-size: 0.62rem; }
+}
+
+/* ==========================================================================
+   Bottom navigation (móvil)
+   ========================================================================== */
+.bottom-nav {
+  display: none; /* solo se hace visible en móvil */
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1040;
+  background: rgba(20, 27, 45, 0.96);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border-top: 1px solid var(--border-subtle);
+  padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
+  box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.45);
+}
+body.is-mobile .bottom-nav {
+  display: flex;
+  justify-content: space-around;
+  align-items: stretch;
+  gap: 2px;
+}
+.bottom-nav__item {
+  flex: 1 1 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: 52px;
+  padding: 4px 6px;
+  text-decoration: none;
+  color: var(--text-secondary);
+  background: transparent;
+  border: 0;
+  border-radius: var(--r-sm);
+  font-size: 0.68rem;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+.bottom-nav__item i {
+  font-size: 1.25rem;
+  line-height: 1;
+}
+.bottom-nav__item:hover,
+.bottom-nav__item:focus {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.04);
+  outline: none;
+}
+.bottom-nav__item.active {
+  color: var(--gold);
+}
+.bottom-nav__item.active::after {
+  content: "";
+  position: absolute;
+  bottom: 4px;
+  width: 18px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--gold);
+}
+.bottom-nav__item { position: relative; }
+.bottom-nav__label {
+  font-weight: 600;
+  letter-spacing: 0.02em;
 }
 
 /* ==========================================================================

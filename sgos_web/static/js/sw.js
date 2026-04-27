@@ -1,4 +1,4 @@
-const CACHE_NAME = 'sgos-v1';
+const CACHE_NAME = 'sgos-v2-mobile';
 const PRECACHE = [
   '/static/css/style.css',
   '/static/js/sortable.js'

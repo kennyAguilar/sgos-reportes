@@ -13,7 +13,7 @@
     <div class="card shadow-sm bg-dark text-light border-secondary">
         <div class="card-body p-0">
             <div class="table-responsive">
-                <table class="table table-dark table-striped table-hover mb-0 align-middle">
+                <table class="table table-dark table-striped table-hover table-stack mb-0 align-middle">
                     <thead>
                         <tr>
                             <th>#</th>
@@ -32,34 +32,34 @@
                         {% for c in cargas %}
                         {% set dup = c.file_hash and hash_counts.get(c.file_hash, 0) > 1 %}
                         <tr {% if dup %}class="table-warning text-dark"{% endif %}>
-                            <td class="text-muted">{{ c.id }}</td>
-                            <td><small>{{ c.fecha_carga or '—' }}</small></td>
-                            <td>
+                            <td data-label="#" class="text-muted">{{ c.id }}</td>
+                            <td data-label="Fecha"><small>{{ c.fecha_carga or '—' }}</small></td>
+                            <td data-label="Tipo">
                                 {% if c.tabla and 'premio' in c.tabla|lower %}
                                     <span class="badge bg-warning text-dark">Premios</span>
                                 {% else %}
                                     <span class="badge bg-info text-dark">Getnet</span>
                                 {% endif %}
                             </td>
-                            <td><span class="text-truncate d-inline-block" style="max-width: 280px;" title="{{ c.archivo }}">{{ c.archivo or '—' }}</span></td>
-                            <td>{{ c.usuario or '—' }}</td>
-                            <td>
+                            <td data-label="Archivo"><span class="text-truncate d-inline-block" style="max-width: 280px;" title="{{ c.archivo }}">{{ c.archivo or '—' }}</span></td>
+                            <td data-label="Usuario">{{ c.usuario or '—' }}</td>
+                            <td data-label="Modo">
                                 {% if c.modo == 'append' %}
                                     <span class="badge bg-secondary">acumular</span>
                                 {% else %}
                                     <span class="badge bg-primary">reemplazar</span>
                                 {% endif %}
                             </td>
-                            <td class="text-end tabular-nums">{{ '{:,}'.format(c.filas or 0) }}</td>
-                            <td class="text-end tabular-nums">
+                            <td data-label="Filas" class="text-end tabular-nums">{{ '{:,}'.format(c.filas or 0) }}</td>
+                            <td data-label="Descartes" class="text-end tabular-nums">
                                 {% if c.descartados and c.descartados > 0 %}
                                     <span class="text-warning">{{ '{:,}'.format(c.descartados) }}</span>
                                 {% else %}
                                     <span class="text-muted">0</span>
                                 {% endif %}
                             </td>
-                            <td><small>{{ c.meses or '—' }}</small></td>
-                            <td>
+                            <td data-label="Meses"><small>{{ c.meses or '—' }}</small></td>
+                            <td data-label="Hash">
                                 {% if c.file_hash %}
                                     <code class="small" title="{{ c.file_hash }}">{{ c.file_hash[:10] }}…</code>
                                     {% if dup %}

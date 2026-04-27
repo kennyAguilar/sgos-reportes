@@ -1,0 +1,24 @@
+{# Bottom navigation bar — solo se incluye cuando is_mobile=True y hay usuario autenticado.
+   Toca solo CSS en .bottom-nav (style.css). Resaltado activo por request.endpoint. #}
+<nav class="bottom-nav" aria-label="Navegación principal móvil">
+  <a class="bottom-nav__item {{ 'active' if request.endpoint == 'home' }}" href="{{ url_for('home') }}">
+    <i class="bi bi-house-door-fill" aria-hidden="true"></i>
+    <span class="bottom-nav__label">Inicio</span>
+  </a>
+  <a class="bottom-nav__item {{ 'active' if request.endpoint == 'index' }}" href="{{ url_for('index') }}">
+    <i class="bi bi-cloud-arrow-up-fill" aria-hidden="true"></i>
+    <span class="bottom-nav__label">Cargar</span>
+  </a>
+  <a class="bottom-nav__item {{ 'active' if request.endpoint in ('dashboard_db','dashboard_premios','dashboard_combinado') }}" href="{{ url_for('dashboard_db') }}">
+    <i class="bi bi-database-fill" aria-hidden="true"></i>
+    <span class="bottom-nav__label">Histórico</span>
+  </a>
+  <a class="bottom-nav__item {{ 'active' if request.endpoint in ('graphs','graphs_premios') }}" href="{{ url_for('graphs') }}">
+    <i class="bi bi-pie-chart-fill" aria-hidden="true"></i>
+    <span class="bottom-nav__label">Reportes</span>
+  </a>
+  <button type="button" class="bottom-nav__item bottom-nav__more" data-bs-toggle="offcanvas" data-bs-target="#navOffcanvas" aria-controls="navOffcanvas" aria-label="Abrir menú completo">
+    <i class="bi bi-list" aria-hidden="true"></i>
+    <span class="bottom-nav__label">Más</span>
+  </button>
+</nav>

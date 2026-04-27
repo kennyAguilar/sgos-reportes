@@ -139,6 +139,27 @@
   window.SGOS.toast = showToast;
   window.SGOS.showLoader = showLoader;
   window.SGOS.hideLoader = hideLoader;
+  window.SGOS.device = {
+    isMobile: function () { return document.body.classList.contains('is-mobile'); },
+    isTablet: function () { return document.body.classList.contains('is-tablet'); },
+    isDesktop: function () { return document.body.classList.contains('is-desktop'); }
+  };
+
+  // ---------- Mobile: cerrar offcanvas al navegar ----------
+  function wireOffcanvasAutoClose() {
+    if (!window.bootstrap || !document.body.classList.contains('is-mobile')) return;
+    var oc = document.getElementById('navOffcanvas');
+    if (!oc) return;
+    oc.addEventListener('click', function (e) {
+      var link = e.target.closest('a[href]');
+      if (!link) return;
+      // Solo cerrar si navega a otra ruta (no dropdowns ni # internos)
+      var href = link.getAttribute('href') || '';
+      if (href === '#' || href.indexOf('#') === 0) return;
+      var instance = window.bootstrap.Offcanvas.getInstance(oc);
+      if (instance) instance.hide();
+    });
+  }
 
   // ---------- Boot ----------
   if (document.readyState === 'loading') {
@@ -146,10 +167,12 @@
       mountFlashes();
       wireForms();
       wireTableSkeletons();
+      wireOffcanvasAutoClose();
     });
   } else {
     mountFlashes();
     wireForms();
     wireTableSkeletons();
+    wireOffcanvasAutoClose();
   }
 })();

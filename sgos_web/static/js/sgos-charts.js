@@ -35,6 +35,21 @@
       Chart.defaults.font.family = "'Plus Jakarta Sans', system-ui, -apple-system, Segoe UI, Roboto, sans-serif";
       Chart.defaults.font.size = 12;
 
+      // Ajustes para móvil: tipografía más compacta, leyendas resumidas,
+      // y maintainAspectRatio=false para que respeten contenedor .chart-wrap.
+      const isMobile = document.body && document.body.classList.contains('is-mobile');
+      if (isMobile) {
+        Chart.defaults.font.size = 11;
+        Chart.defaults.maintainAspectRatio = false;
+        if (Chart.defaults.plugins && Chart.defaults.plugins.legend) {
+          Chart.defaults.plugins.legend.position = 'bottom';
+          Chart.defaults.plugins.legend.labels = Chart.defaults.plugins.legend.labels || {};
+          Chart.defaults.plugins.legend.labels.boxWidth = 10;
+          Chart.defaults.plugins.legend.labels.padding = 8;
+          Chart.defaults.plugins.legend.labels.font = { size: 10 };
+        }
+      }
+
       if (Chart.defaults.plugins && Chart.defaults.plugins.legend) {
         Chart.defaults.plugins.legend.labels = Chart.defaults.plugins.legend.labels || {};
         Chart.defaults.plugins.legend.labels.color = this.textSecondary;
