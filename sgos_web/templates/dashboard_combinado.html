@@ -20,6 +20,35 @@
         </form>
     </div>
 
+    <section class="calc-legend mb-4" aria-label="Leyenda de cálculos">
+        <div class="calc-legend__title">
+            <i class="bi bi-calculator"></i>
+            Leyenda de cálculos
+        </div>
+        <div class="calc-legend__grid">
+            <div class="calc-legend__item">
+                <strong>Ingresos Getnet</strong>
+                <span>Suma mensual de la columna Monto en operaciones Getnet del periodo seleccionado.</span>
+            </div>
+            <div class="calc-legend__item">
+                <strong>Pagos Premios</strong>
+                <span>Suma mensual de Premios filtrando solo Jackpot HP y Progressive Jackpot HP.</span>
+            </div>
+            <div class="calc-legend__item">
+                <strong>Neto</strong>
+                <span>Getnet menos Premios para cada mes.</span>
+            </div>
+            <div class="calc-legend__item">
+                <strong>Ratio Payout</strong>
+                <span>Premios / Getnet x 100. Si Getnet es 0, el ratio queda sin valor.</span>
+            </div>
+            <div class="calc-legend__item">
+                <strong>Ratio global</strong>
+                <span>Total Premios del periodo / Total Getnet del periodo x 100.</span>
+            </div>
+        </div>
+    </section>
+
     {# KPIs totales #}
     <div class="row g-3 mb-4 kpi-row">
         <div class="col-md-4">

@@ -6,9 +6,46 @@
 {% endblock %}
 
 {% block content %}
+    {% set dashboard_tipo = tipo_modulo|default('ARCHIVO') %}
+    {% set es_premios = dashboard_tipo == 'PREMIOS' %}
     <div class="header-dashboard">
       <h1><i class="bi bi-graph-up"></i> {{ titulo_dashboard|default('Data de Reportes') }}</h1>
     </div>
+
+    <section class="calc-legend mb-4" aria-label="Leyenda de cálculos">
+      <div class="calc-legend__title">
+        <i class="bi bi-calculator"></i>
+        Leyenda de cálculos
+      </div>
+      <div class="calc-legend__grid">
+        <div class="calc-legend__item">
+          <strong>Filtros aplicados</strong>
+          <span>Todos los indicadores usan el año, mes y asistentes seleccionados en esta pantalla.</span>
+        </div>
+        <div class="calc-legend__item">
+          <strong>Total operaciones</strong>
+          <span>Cuenta las filas válidas del periodo filtrado. Si hay comparación mensual: (mes actual - mes anterior) / mes anterior.</span>
+        </div>
+        <div class="calc-legend__item">
+          <strong>{{ 'Monto pagado' if es_premios else 'Monto total' }}</strong>
+          <span>Suma la columna Monto de las filas filtradas. El promedio/ticket se obtiene dividiendo monto total por operaciones.</span>
+        </div>
+        <div class="calc-legend__item">
+          <strong>Hora pico y top asistente</strong>
+          <span>Hora pico es la hora con más operaciones. Top asistente es quien acumula más operaciones en el periodo.</span>
+        </div>
+        <div class="calc-legend__item">
+          <strong>Tablas del reporte</strong>
+          <span>Resumen Mensual agrupa por Mes; Operaciones por Hora agrupa en jornada 10:00 a 08:00 y los promedios se dividen por jornadas únicas.</span>
+        </div>
+        {% if es_premios %}
+        <div class="calc-legend__item">
+          <strong>Premios</strong>
+          <span>Los resúmenes de premios consideran Jackpot HP y Progressive Jackpot HP. Los conteos separan Premios, MDC purse clear, Cancel Credit y Chip Cash HandPay.</span>
+        </div>
+        {% endif %}
+      </div>
+    </section>
 
     {% if kpis and kpis.total_operaciones > 0 %}
     <div class="row g-3 mb-4 kpi-row">

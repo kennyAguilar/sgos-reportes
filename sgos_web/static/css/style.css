@@ -639,6 +639,57 @@ body.login-page {
 .alert-warning { background: var(--amber-soft); border-color: rgba(245, 158, 11, 0.4); color: #FCD34D; }
 .alert-info { background: var(--info-soft); border-color: rgba(96, 165, 250, 0.4); color: var(--info); }
 
+/* ==========================================================================
+   Calculation legends
+   ========================================================================== */
+
+.calc-legend {
+  background:
+    linear-gradient(135deg, rgba(96, 165, 250, 0.08), rgba(212, 175, 55, 0.06)),
+    var(--surface-1);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--r-lg);
+  padding: var(--s-4) var(--s-5);
+  box-shadow: var(--shadow-sm);
+}
+
+.calc-legend__title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--gold);
+  font-weight: 800;
+  margin-bottom: var(--s-3);
+}
+
+.calc-legend__title i { font-size: 1.05rem; }
+
+.calc-legend__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 10px 16px;
+}
+
+.calc-legend__item {
+  min-width: 0;
+  padding-left: 12px;
+  border-left: 2px solid rgba(212, 175, 55, 0.35);
+}
+
+.calc-legend__item strong {
+  display: block;
+  color: var(--text-primary);
+  font-size: 0.86rem;
+  margin-bottom: 2px;
+}
+
+.calc-legend__item span {
+  display: block;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
 .toast-container.sgos-toasts {
   position: fixed;
   bottom: 20px;

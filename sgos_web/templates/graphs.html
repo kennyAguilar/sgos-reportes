@@ -3,6 +3,7 @@
 {% block title %}{{ title }}{% endblock %}
 
 {% block content %}
+{% set es_premios = endpoint == 'graphs_premios' %}
 <div class="container-fluid mt-4">
     <div class="header-dashboard mb-4 d-flex justify-content-between align-items-center">
         <h1><i class="bi bi-pie-chart-fill"></i> {{ title }}</h1>
@@ -17,6 +18,35 @@
             </select>
         </form>
     </div>
+
+    <section class="calc-legend mb-4" aria-label="Leyenda de cálculos">
+        <div class="calc-legend__title">
+            <i class="bi bi-calculator"></i>
+            Leyenda de cálculos
+        </div>
+        <div class="calc-legend__grid">
+            <div class="calc-legend__item">
+                <strong>Base de datos</strong>
+                <span>{{ 'Premios usa solo Jackpot HP y Progressive Jackpot HP.' if es_premios else 'Getnet usa las operaciones históricas cargadas.' }} El filtro de año limita todos los gráficos.</span>
+            </div>
+            <div class="calc-legend__item">
+                <strong>Operaciones por Mes</strong>
+                <span>Cuenta operaciones válidas agrupadas por Mes.</span>
+            </div>
+            <div class="calc-legend__item">
+                <strong>Montos por Mes</strong>
+                <span>Suma la columna Monto agrupada por Mes.</span>
+            </div>
+            <div class="calc-legend__item">
+                <strong>Promedios por Hora</strong>
+                <span>Agrupa por Hora en jornada 10:00 a 08:00 y divide operaciones o monto entre las jornadas únicas del periodo.</span>
+            </div>
+            <div class="calc-legend__item">
+                <strong>Mapa de calor</strong>
+                <span>Cada celda Día x Hora divide el total de esa franja entre la cantidad de jornadas de ese día de la semana.</span>
+            </div>
+        </div>
+    </section>
 
     <div class="row mb-4">
         <!-- Resumen Mensual: Operaciones -->
